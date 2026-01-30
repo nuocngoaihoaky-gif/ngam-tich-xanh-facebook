@@ -152,17 +152,15 @@ def main():
         except:
             print("   + Phát hiện Login 2 bước (Không thấy ô Pass).", flush=True)
             
-            # --- FIX: VÉT CẠN NÚT CONTINUE ---
-            # Tìm mọi thể loại nút có chữ Continue hoặc Log In
+            # --- FIX: ÁP DỤNG CODE CỦA BÁC + VÉT CẠN ---
             found_continue = False
             continue_xpaths = [
+                "//div[@role='button' and @aria-label='Continue']", 
+                "//div[@role='button' and @aria-label='Tiếp tục']",
                 "//button[contains(text(), 'Continue')]",
                 "//div[contains(text(), 'Continue')]",
                 "//span[contains(text(), 'Continue')]",
-                "//button[@name='login']",
-                "//button[contains(text(), 'Log In')]",
-                "//div[@role='button' and contains(., 'Continue')]",
-                "//button[@value='Continue']"
+                "//button[@name='login']"
             ]
             
             for xp in continue_xpaths:
@@ -170,21 +168,21 @@ def main():
                     btns = driver.find_elements(By.XPATH, xp)
                     for btn in btns:
                         if btn.is_displayed():
-                            print(f"   + 👉 Đã tìm thấy nút: {btn.text} (Tag: {btn.tag_name})", flush=True)
+                            print(f"   + 👉 Đã bấm nút: {xp}", flush=True)
                             driver.execute_script("arguments[0].click();", btn)
                             found_continue = True
-                            time.sleep(5) # Chờ load bước 2
+                            time.sleep(5) 
                             break
                 except: pass
                 if found_continue: break
             
             if not found_continue:
-                # Nếu không thấy nút nào, thử bấm Enter ở ô Email
+                # Nếu không thấy nút nào, thử Enter
                 print("   ! Không thấy nút bấm, thử Enter...", flush=True)
                 email_box.send_keys(Keys.ENTER)
                 time.sleep(5)
 
-            # Giờ mới tìm ô Pass (Dùng visibility để chắc chắn nó đã hiện)
+            # Giờ mới tìm ô Pass
             try:
                 print("   + Đang đợi ô Password hiện ra...", flush=True)
                 pass_box = wait.until(EC.visibility_of_element_located((By.NAME, "pass")))
@@ -193,6 +191,7 @@ def main():
                 # Bấm Login lần cuối
                 login_btn = wait.until(EC.element_to_be_clickable((By.NAME, "login")))
                 driver.execute_script("arguments[0].click();", login_btn)
+                
             except Exception as e:
                 gui_anh_tele(driver, f"❌ Lỗi điền Pass: {e}")
                 return
@@ -220,9 +219,15 @@ def main():
                 driver.execute_script("arguments[0].click();", email_option[0])
                 time.sleep(2)
                 
-                cont_btn = driver.find_elements(By.XPATH, "//span[contains(text(), 'Continue')]")
-                if not cont_btn: cont_btn = driver.find_elements(By.XPATH, "//div[@role='button' and contains(., 'Continue')]")
-                if cont_btn: driver.execute_script("arguments[0].click();", cont_btn[0]); time.sleep(10)
+                # Bấm Continue ở bước 2FA
+                for cxp in ["//div[@role='button' and @aria-label='Continue']", "//span[contains(text(), 'Continue')]"]:
+                    try:
+                        c_btns = driver.find_elements(By.XPATH, cxp)
+                        if c_btns and c_btns[0].is_displayed():
+                            driver.execute_script("arguments[0].click();", c_btns[0])
+                            time.sleep(10)
+                            break
+                    except: pass
         except: pass
 
         # Bước 3: Nhập mã
