@@ -132,7 +132,7 @@ def main():
         try:
             time.sleep(5)
             gui_anh_tele(driver, f"📱 Vào Facebook...")
-            driver.get("https://m.facebook.com/")
+            driver.get("https://m.facebook.com/login/")
             time.sleep(2)
             gui_anh_tele(driver, f"📱 Vào Facebook lần 2...")
             try: email_box = wait.until(EC.presence_of_element_located((By.NAME, "email")))
