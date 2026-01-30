@@ -5,7 +5,7 @@ import sys
 import requests
 from datetime import datetime
 import pytz
-# 🔥 THAY ĐỔI QUAN TRỌNG: DÙNG THƯ VIỆN UNDETECTED
+# Dùng thư viện chống Detect (Cần cài đặt trong workflow)
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -86,21 +86,21 @@ def xu_ly_sau_login(driver):
     except: pass
 
 def setup_driver():
-    print(">>> 🛠️ Đang khởi tạo Driver (UNDETECTED MODE V40)...", flush=True)
+    print(">>> 🛠️ Đang khởi tạo Driver (AUTO VERSION V41)...", flush=True)
     
     options = uc.ChromeOptions()
-    # 🔥 HEADLESS MODE MỚI (Khó bị phát hiện hơn mode cũ)
+    # HEADLESS MODE MỚI (Khó bị phát hiện)
     options.add_argument("--headless=new") 
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--lang=en-US")
     
-    # Fake User Agent xịn của Windows
+    # Fake User Agent Windows xịn
     options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
 
-    # Tự động tải driver phù hợp và patch
-    driver = uc.Chrome(options=options, version_main=121) # Ép dùng bản Chrome ổn định
+    # 🔥 FIX: KHÔNG ÉP VERSION NỮA, ĐỂ NÓ TỰ TÌM
+    driver = uc.Chrome(options=options) 
     
     return driver
 
@@ -108,7 +108,7 @@ def setup_driver():
 # MAIN LOOP
 # ==============================================================================
 def main():
-    print(">>> 🚀 BOT KHỞI ĐỘNG (V40 - ANTI DETECT)...", flush=True)
+    print(">>> 🚀 BOT KHỞI ĐỘNG (V41 - AUTO DRIVER)...", flush=True)
     email = os.environ.get("FB_EMAIL")
     password = os.environ.get("FB_PASS")
     
@@ -125,14 +125,12 @@ def main():
     try:
         # --- LOGIN ---
         print(">>> 💻 Vào Facebook (Desktop)...", flush=True)
-        # Vào trang www thay vì mbasic để giống người dùng máy tính
         driver.get("https://www.facebook.com/login/?locale=en_US")
         time.sleep(3)
 
         # 0. Check CAPTCHA ngay đầu
         if "recaptcha" in driver.page_source.lower() or "challenge" in driver.page_source.lower():
             gui_anh_tele(driver, "❌ DÍNH CAPTCHA NGAY TỪ ĐẦU (IP BAD)")
-            # Nếu dính ngay đầu thì IP quá nát, không làm gì được
             return
 
         # 1. Nhập Email
@@ -193,7 +191,7 @@ def main():
                     time.sleep(2)
                     code_input.send_keys(Keys.ENTER)
                     
-                    # Bấm Continue nếu cần (Tìm nút submit)
+                    # Bấm Continue nếu cần
                     try:
                         btns = driver.find_elements(By.XPATH, "//div[@role='button']//span[contains(text(), 'Continue')]")
                         if not btns: btns = driver.find_elements(By.XPATH, "//button[@type='submit']")
