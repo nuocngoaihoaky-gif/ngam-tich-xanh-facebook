@@ -1,0 +1,59 @@
+name: Production_Infrastructure_Monitor
+
+on:
+  schedule:
+    # SỬA: Chạy mỗi 6 tiếng (0h, 6h, 12h, 18h) vì Bot ngâm 6h mới tắt
+    - cron: '0 */6 * * *'
+  # Cho phép bấm chạy tay khi cần test
+  workflow_dispatch:
+
+jobs:
+  system-check:
+    runs-on: ubuntu-latest
+    # Cấp quyền ghi để có thể Kill job cũ (Quan trọng)
+    permissions:
+      actions: write
+      contents: read
+    
+    steps:
+      # 1. CHIẾN THUẬT "DỌN ĐƯỜNG": Diệt Job cũ tránh xung đột
+      - name: Prune Stale Processes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          runs=$(gh run list --repo ${{ github.repository }} --status in_progress --json databaseId --jq ".[] | select(.databaseId != ${{ github.run_id }}) | .databaseId")
+          for run_id in $runs; do
+            echo "Killing stale run: $run_id"
+            gh run cancel $run_id --repo ${{ github.repository }}
+          done
+
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      # 2. CÀI ĐẶT THƯ VIỆN (Đã bỏ pyotp vì dùng API Gmail rồi)
+      - name: Install Dependencies
+        run: |
+          pip install selenium requests pytz
+
+      # 3. CHẠY BOT (Cấu hình IP Mỹ & API Gmail)
+      - name: Execute Diagnostics
+        env:
+          FB_EMAIL: ${{ secrets.FB_EMAIL }}
+          FB_PASS: ${{ secrets.FB_PASS }}
+          GAS_API_URL: ${{ secrets.GAS_API_URL }}  # Thay cho FB_2FA_KEY
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        # Set timeout 360p (6h) khớp với code Python
+        timeout-minutes: 360
+        run: python -u main.py
+
+      # 4. CHỤP ẢNH LỖI (Nếu bot sập bất ngờ)
+      - name: Upload Error Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshots
+          path: "*.png"
