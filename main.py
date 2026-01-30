@@ -13,10 +13,13 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-
+# ==============================================================================
+# CẤU HÌNH API
+# ==============================================================================
+GAS_API_URL = os.environ.get("GAS_API_URL")
 
 # ==============================================================================
-
+# CÁC HÀM HỖ TRỢ
 # ==============================================================================
 
 def gui_anh_tele(driver, caption="Ảnh chụp màn hình"):
@@ -31,9 +34,7 @@ def gui_anh_tele(driver, caption="Ảnh chụp màn hình"):
             requests.post(url, files={'photo': photo}, data={'chat_id': chat_id, 'caption': caption})
     except: pass
 
-
-
-def get_2fa_code():
+def get_code_from_email():
     if not GAS_API_URL:
         print(">>> ❌ CHƯA CÓ LINK API GOOGLE APPS SCRIPT!", flush=True)
         return None
@@ -54,163 +55,307 @@ def get_2fa_code():
             time.sleep(5)
     return None
 
+def force_click(driver, element):
+    try:
+        element.click()
+        return True
+    except:
+        try:
+            driver.execute_script("arguments[0].click();", element)
+            return True
+        except:
+            try:
+                actions = ActionChains(driver)
+                actions.move_to_element(element).click().perform()
+                return True
+            except:
+                return False
 
 def xu_ly_sau_login(driver):
-    print(">>> 🛡️ Đang kiểm tra các bước xác minh/lưu trình duyệt...", flush=True)
+    print(">>> 🛡️ Đang dọn dẹp popup sau login...", flush=True)
     try:
-        check_xpaths = ["//span[contains(text(), 'Lưu')]", "//span[contains(text(), 'Tiếp tục')]", "//div[@role='button' and contains(., 'Lưu')]", "//div[@role='button' and contains(., 'Tiếp tục')]", "//button[@value='OK']"]
+        # Xpath tổng hợp cả Mobile lẫn Desktop
+        check_xpaths = [
+            "//span[contains(text(), 'Save')]", "//div[@role='button' and contains(., 'Save')]",
+            "//span[contains(text(), 'Continue')]", "//div[@role='button' and contains(., 'Continue')]",
+            "//span[contains(text(), 'OK')]", "//span[contains(text(), 'Lưu')]", "//span[contains(text(), 'Tiếp tục')]",
+            "//div[@aria-label='Close']", "//div[@aria-label='Đóng']",
+            "//span[contains(text(), 'Remember Password')]"
+        ]
         for _ in range(3):
             for xp in check_xpaths:
                 try:
                     btns = driver.find_elements(By.XPATH, xp)
                     for btn in btns:
                         if btn.is_displayed():
-                            print(f"   🔨 Bấm nút cản đường: {btn.text}", flush=True)
-                            driver.execute_script("arguments[0].click();", btn)
-                            time.sleep(5) 
+                            print(f"   🔨 Bấm nút: {btn.text}", flush=True)
+                            force_click(driver, btn)
+                            time.sleep(3) 
                             return 
                 except: pass
-            time.sleep(2)
-    except Exception as e: print(f"   ! Lỗi xử lý sau login: {e}", flush=True)
-
-def diet_popup(driver):
-    try:
-        popup_xpaths = ["//span[contains(text(), 'Lúc khác')]", "//span[contains(text(), 'Not now')]", "//span[contains(text(), 'Để sau')]", "//div[@aria-label='Đóng']", "//div[@aria-label='Close']"]
-        for xp in popup_xpaths:
-            btns = driver.find_elements(By.XPATH, xp)
-            if len(btns) > 0:
-                for btn in btns:
-                    if btn.is_displayed():
-                        driver.execute_script("arguments[0].click();", btn)
-                        time.sleep(1)
+            time.sleep(1)
     except: pass
 
 def setup_driver():
-    print(">>> 🛠️ Đang khởi tạo Driver (Profile: Việt Kiều Mỹ)...", flush=True)
+    print(">>> 🛠️ Đang khởi tạo Driver (PROFILE: WINDOWS LAPTOP)...", flush=True)
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-notifications")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--window-size=375,812")
-    chrome_options.add_argument("--lang=vi-VN")
+    
+    # 🔥 1. Cấu hình màn hình Desktop Full HD
+    chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--start-maximized")
+    
+    # 🔥 2. Fake User Agent (Windows 10 - Edge/Chrome Like)
+    # Lưu ý: Dùng version 120+ cho ổn định, 144 sợ hơi ảo (vì chưa ra mắt chính thức), 
+    # nhưng tôi sẽ để cấu trúc giống hệt bác yêu cầu.
+    ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0"
+    chrome_options.add_argument(f"--user-agent={ua}")
+    chrome_options.add_argument("--lang=en-US")
+
+    # 🔥 3. Anti-Detection
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
-    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-    
-    ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
-    mobile_emulation = { "deviceMetrics": { "width": 375, "height": 812, "pixelRatio": 3.0 }, "userAgent": ua }
-    chrome_options.add_experimental_option("mobileEmulation", mobile_emulation)
     
     driver = webdriver.Chrome(options=chrome_options)
-    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-    params = { "timezoneId": "Asia/Ho_Chi_Minh" }
-    driver.execute_cdp_cmd("Emulation.setTimezoneOverride", params)
+
+    # 🔥 4. Bơm Headers xịn (Client Hints) để vượt qua bộ lọc check device
+    # Đây là bước quan trọng để Facebook tin đây là Laptop thật
+    driver.execute_cdp_cmd("Network.setUserAgentOverride", {
+        "userAgent": ua,
+        "platform": "Windows",
+        "userAgentMetadata": {
+            "brands": [
+                {"brand": "Chromium", "version": "122"},
+                {"brand": "Microsoft Edge", "version": "122"},
+                {"brand": "Not(A:Brand", "version": "24"}
+            ],
+            "fullVersion": "122.0.0.0",
+            "platform": "Windows",
+            "platformVersion": "10.0.0",
+            "architecture": "x86",
+            "model": "",
+            "mobile": False  # QUAN TRỌNG: ?0 nghĩa là False (Desktop)
+        }
+    })
+
+    # 🔥 5. Fake Hardware (Giống Laptop)
+    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+        "source": """
+            Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+            Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8}); // Laptop thường 4-8 nhân
+            Object.defineProperty(navigator, 'deviceMemory', {get: () => 8}); // 8GB RAM
+            Object.defineProperty(navigator, 'platform', {get: () => 'Win32'}); // Windows luôn báo là Win32
+            Object.defineProperty(navigator, 'maxTouchPoints', {get: () => 0}); // Laptop ko cảm ứng
+        """
+    })
+    
+    # 6. Fake IP/Timezone (New York)
+    driver.execute_cdp_cmd("Emulation.setTimezoneOverride", { "timezoneId": "America/New_York" })
+    driver.execute_cdp_cmd("Emulation.setGeolocationOverride", { "latitude": 40.7128, "longitude": -74.0060, "accuracy": 100 })
+    
     return driver
 
 # ==============================================================================
-# 3. TƯƠNG TÁC DẠO (MODE: NGHIỆN FACEBOOK)
-# ==============================================================================
-
-
-# ==============================================================================
-# 4. MAIN LOOP (SAFE MODE + FIX 2FA TIẾNG VIỆT)
+# MAIN LOOP
 # ==============================================================================
 def main():
-    print(">>> 🚀 BOT KHỞI ĐỘNG...", flush=True)
-    email = os.environ["FB_EMAIL"]
-    password = os.environ["FB_PASS"]
-    GAS_API_URL = os.environ.get("GAS_API_URL")
+    print(">>> 🚀 BOT LAPTOP (V39) KHỞI ĐỘNG...", flush=True)
+    email = os.environ.get("FB_EMAIL")
+    password = os.environ.get("FB_PASS")
+    
+    if not email or not password: return
+
     driver = setup_driver()
-    wait = WebDriverWait(driver, 30)
+    wait = WebDriverWait(driver, 40)
 
     try:
-        # --- LOGIN ---
-        print(">>> 📱 Vào Facebook...", flush=True)
-        driver.get("https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://m.facebook.com/login/&ved=2ahUKEwjg2YGfjrOSAxVXhlYBHUd6PZgQjBB6BAgOEAs&usg=AOvVaw2w0viUc6w-UMi3Mi1eanGw")
-        print(">>> 🔐 Nhập User/Pass...", flush=True)
+        # --- LOGIN (Vẫn dùng m.facebook.com vì nhẹ và dễ bot, nhưng UserAgent là Desktop) ---
+        print(">>> 💻 Vào Facebook (Desktop Mode)...", flush=True)
+        driver.get("https://m.facebook.com/?locale=en_US") 
+        # Lưu ý: Dù vào 'm.' nhưng với UserAgent Laptop, FB có thể tự redirect sang 'www.' hoặc giao diện mbasic.
+        # Code dưới đây được thiết kế để xử lý linh hoạt cả 2 trường hợp.
+
+        # 0. Check CAPTCHA
+        if "I'm not a robot" in driver.page_source:
+            gui_anh_tele(driver, "❌ DÍNH CAPTCHA NGAY ĐẦU!")
+            return
+
+        # 1. Nhập Email
+        print(">>> 🔐 Nhập Email...", flush=True)
         try:
-            time.sleep(10)
-            gui_anh_tele(driver, f"📱 Vào Facebook...")
-            try: email_box = wait.until(EC.presence_of_element_located((By.NAME, "email")))
-            except: email_box = driver.find_element(By.CSS_SELECTOR, "input[type='email']")
+            email_box = wait.until(EC.presence_of_element_located((By.NAME, "email")))
             email_box.clear(); email_box.send_keys(email)
-            pass_box = driver.find_element(By.NAME, "pass")
-            pass_box.clear(); pass_box.send_keys(password)
-        except Exception as e: gui_anh_tele(driver, f"❌ Lỗi điền form: {e}")
+        except Exception as e:
+            gui_anh_tele(driver, f"❌ Lỗi tìm ô Email: {e}")
+            return
 
-        print(">>> 🔎 Bấm nút Login...", flush=True)
-        login_clicked = False
-        login_xpaths = ["//span[contains(text(), 'Log in')]", "//span[contains(text(), 'Log In')]", "//span[contains(text(), 'Đăng nhập')]", "//button[@name='login']", "//div[@role='button' and (contains(., 'Log In') or contains(., 'Đăng nhập'))]", "//input[@value='Log In']", "//input[@type='submit']"]
-        for xpath in login_xpaths:
-            try:
-                btn = driver.find_element(By.XPATH, xpath)
-                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
-                time.sleep(1)
-                btn.click()
-                login_clicked = True
-                break
-            except: continue
-        if not login_clicked:
-            try: driver.find_element(By.NAME, "pass").send_keys(Keys.ENTER)
-            except: pass
-        time.sleep(15)
+        time.sleep(2)
 
-        # --- 2FA LOGIC (ĐÃ FIX: THÊM TỪ KHÓA TIẾNG VIỆT) ---
-        print(">>> 🕵️ Kiểm tra 2FA...", flush=True)
-        try_btn = None
-        # Kiểm tra nút "Try another way" hoặc "Thử cách khác"
-        try_xpaths = ["//div[@role='button' and contains(., 'Try another way')]", "//div[@role='button' and contains(., 'Thử cách khác')]"]
-        for xp in try_xpaths:
-            try:
-                if len(driver.find_elements(By.XPATH, xp)) > 0:
-                    try_btn = driver.find_element(By.XPATH, xp); break
-            except: continue
-            
-        if try_btn:
-            try_btn.click(); time.sleep(3)
-            # 🔥 FIX: Thêm "Ứng dụng xác thực" để bot hiểu tiếng Việt
-            auth_app_xpaths = [
-                "//div[@role='radio' and contains(@aria-label, 'Email')]", 
-                "//div[contains(., 'Email')]",
-                "//div[contains(., 'Email')]",
-                "//span[contains(text(), 'Email')]"
+        # 2. Xử lý nút Continue (Vét cạn)
+        # Kiểm tra xem có phải login 2 bước (nhập mail -> continue -> nhập pass)
+        if len(driver.find_elements(By.NAME, "pass")) == 0:
+            print("   Login 2 bước: Đang xử lý nút Continue...", flush=True)
+            targets = [
+                "//div[@role='button' and @aria-label='Continue']",
+                "//div[contains(text(), 'Continue')]",
+                "//button[contains(text(), 'Continue')]",
+                "//button[@id='loginbutton']", # Desktop layout thường dùng id này
+                "//input[@type='submit']"
             ]
-            for axp in auth_app_xpaths:
-                try: driver.find_element(By.XPATH, axp).click(); break
-                except: continue
-            time.sleep(2)
-            continue_xpaths = ["//div[@role='button' and @aria-label='Continue']", "//div[@role='button' and @aria-label='Tiếp tục']"]
-            for cxp in continue_xpaths:
-                try: driver.find_element(By.XPATH, cxp).click(); break
-                except: continue
+            for xp in targets:
+                try:
+                    elms = driver.find_elements(By.XPATH, xp)
+                    for elm in elms:
+                        if elm.is_displayed():
+                            print(f"   👉 Bấm nút: {xp}", flush=True)
+                            force_click(driver, elm); time.sleep(1)
+                except: pass
+            
+            try: email_box.send_keys(Keys.ENTER)
+            except: pass
             time.sleep(5)
 
-        fa_input = None
+        # 3. NHẬP PASSWORD & BẤM LOGIN
+        print(">>> 🔐 Đang đợi ô Password...", flush=True)
         try:
-            inputs = driver.find_elements(By.TAG_NAME, "input")
-            for inp in inputs:
-                if inp.get_attribute("type") in ["tel", "number"]: fa_input = inp; break
-        except: pass
-        if not fa_input:
-            fa_xpaths = ["//input[@name='approvals_code']", "//input[@placeholder='Code']", "//input[@aria-label='Code']"]
-            for xp in fa_xpaths:
-                try: fa_input = driver.find_element(By.XPATH, xp); break
-                except: continue
+            pass_box = None
+            try: pass_box = wait.until(EC.visibility_of_element_located((By.NAME, "pass")))
+            except: 
+                try: pass_box = driver.find_element(By.XPATH, "//input[@type='password']")
+                except: pass
 
-        if fa_input:
-            otp = get_2fa_code()
-            print(f">>> 🔥 Nhập OTP: {otp}", flush=True)
-            gui_anh_tele(driver, f"🔥 Nhập OTP: {otp}")
-            fa_input.click(); fa_input.send_keys(otp); time.sleep(2)
-            submit_xpaths = ["//div[@role='button' and @aria-label='Continue']", "//div[@role='button' and @aria-label='Tiếp tục']", "//button[@type='submit']", "//button[@id='checkpointSubmitButton']"]
-            for btn_xp in submit_xpaths:
-                try: driver.find_element(By.XPATH, btn_xp).click(); break
-                except: continue
-            fa_input.send_keys(Keys.ENTER); time.sleep(10)
+            if pass_box:
+                pass_box.click(); pass_box.send_keys(password); time.sleep(1)
+                
+                # Bấm Login
+                clicked_login = False
+                login_targets = [
+                    "//div[@role='button' and @aria-label='Log in']", 
+                    "//button[@name='login']", # Chuẩn Desktop
+                    "//div[contains(text(), 'Log in')]",
+                    "//button[@id='loginbutton']",
+                    "//input[@value='Log In']"
+                ]
+                for xp in login_targets:
+                    try:
+                        btns = driver.find_elements(By.XPATH, xp)
+                        for btn in btns:
+                            if btn.is_displayed():
+                                force_click(driver, btn); clicked_login = True; time.sleep(1)
+                    except: pass
+                
+                if not clicked_login: pass_box.send_keys(Keys.ENTER)
+            else:
+                gui_anh_tele(driver, "❌ Mất tích ô Password"); return
+        except Exception as e: return
+
+        time.sleep(10)
+
+        # --- XỬ LÝ 2FA (LOGIC THÔNG MINH) ---
+        print(">>> 🕵️ Kiểm tra 2FA...", flush=True)
         
+        # Check "Try another way"
+        try:
+            try_btn = driver.find_elements(By.XPATH, "//span[contains(text(), 'Try another way')]") or driver.find_elements(By.XPATH, "//div[contains(., 'Try another way')]") or driver.find_elements(By.XPATH, "//a[contains(text(), 'Try another way')]")
+            if try_btn and try_btn[0].is_displayed():
+                force_click(driver, try_btn[0]); time.sleep(5)
+                # Chọn Email
+                email_opts = driver.find_elements(By.XPATH, "//span[contains(text(), 'Email')]")
+                if email_opts and email_opts[0].is_displayed():
+                    force_click(driver, email_opts[0]); time.sleep(2)
+                    c_btns = driver.find_elements(By.XPATH, "//div[@aria-label='Continue']") or driver.find_elements(By.XPATH, "//span[contains(text(), 'Continue')]") or driver.find_elements(By.XPATH, "//button[contains(text(), 'Continue')]")
+                    if c_btns: force_click(driver, c_btns[0]); time.sleep(10)
+        except: pass
+
+        # === TÌM Ô NHẬP MÃ (VÉT CẠN MỌI LOẠI INPUT) ===
+        # Vì là Desktop layout có thể khác Mobile, nên chiến thuật "vét cạn" là an toàn nhất
+        code_input = None
+        for attempt in range(5): 
+            print(f">>> ⏳ Quét ô nhập mã lần {attempt+1}/5...", flush=True)
+            
+            # 1. Tìm theo Placeholder
+            try: 
+                inps = driver.find_elements(By.XPATH, "//input[@placeholder='Enter code']") or driver.find_elements(By.XPATH, "//input[@placeholder='Code']")
+                if inps: code_input = inps[0]
+            except: pass
+            
+            # 2. Tìm theo name
+            if not code_input:
+                try:
+                    inps = driver.find_elements(By.XPATH, "//input[@name='n']") or driver.find_elements(By.XPATH, "//input[@name='approvals_code']")
+                    if inps: code_input = inps[0]
+                except: pass
+            
+            # 3. Chiến thuật VÉT CẠN (Laptop hay dùng): Tìm tất cả input text/number
+            if not code_input:
+                all_inputs = driver.find_elements(By.TAG_NAME, "input")
+                for inp in all_inputs:
+                    try:
+                        inp_type = inp.get_attribute("type")
+                        # Lọc các input không phải mã (ẩn, checkbox, email, password...)
+                        if inp.is_displayed() and inp_type in ["text", "number", "tel"] and inp.get_attribute("name") != "email":
+                            code_input = inp
+                            print(f"   👉 Phát hiện ô input lạ (Có thể là ô mã): Type={inp_type}", flush=True)
+                            break
+                    except: pass
+            
+            if code_input: break
+            time.sleep(3) 
+
+        if code_input:
+            print(">>> ❗ Đang lấy mã từ Email...", flush=True)
+            otp_code = get_code_from_email()
+            
+            if otp_code:
+                print(f">>> ✍️ Nhập mã: {otp_code}", flush=True)
+                code_input.send_keys(otp_code)
+                time.sleep(2)
+                code_input.send_keys(Keys.ENTER)
+                time.sleep(10)
+                
+                # Bấm Continue nếu cần
+                try:
+                    s_btns = driver.find_elements(By.XPATH, "//button[@type='submit']") or driver.find_elements(By.XPATH, "//span[contains(text(), 'Continue')]")
+                    if s_btns: force_click(driver, s_btns[0])
+                except: pass
+            else:
+                print(">>> ❌ Không có mã. Dừng.", flush=True); return
+        else:
+            print(">>> ⚠️ Không thấy ô nhập Code. (Hy vọng đã login thẳng hoặc bị kẹt)")
+
+        # --- CHECK LOG FINAL ---
+        if len(driver.find_elements(By.NAME, "email")) > 0:
+            print(">>> ❌ Vẫn thấy ô nhập Email -> LOGIN THẤT BẠI!", flush=True)
+            gui_anh_tele(driver, "❌ LOGIN FAILED (Vẫn ở trang chủ)")
+            return
+        
+        if "I'm not a robot" in driver.page_source:
+             gui_anh_tele(driver, "❌ DÍNH CAPTCHA CUỐI CÙNG!")
+             return
+
+        # --- NẾU QUA ĐƯỢC ĐÂY LÀ NGON ---
         xu_ly_sau_login(driver)
-        gui_anh_tele(driver, "✅ LOGIN OK! Vào chế độ HUMAN SCROLL...")
+        gui_anh_tele(driver, "✅ LOGIN THÀNH CÔNG (PC MODE)! ĐANG NGÂM...")
+
+        # NGÂM 6 TIẾNG
+        total_time = 21600 
+        check_interval = 1800 
+        loops = int(total_time / check_interval)
+        
+        for i in range(loops):
+            print(f"   💤 Treo máy... (Chu kỳ {i+1}/{loops})", flush=True)
+            time.sleep(check_interval)
+            try:
+                print("   🔄 Refresh nhẹ...", flush=True)
+                driver.get("https://m.facebook.com/?locale=en_US")
+                time.sleep(10)
+            except: pass
+
+        print(">>> ✅ XONG 6 TIẾNG.", flush=True)
 
     finally:
         driver.quit()
