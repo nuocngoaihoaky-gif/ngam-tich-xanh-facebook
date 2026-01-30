@@ -5,7 +5,6 @@ import sys
 import requests
 from datetime import datetime
 import pytz
-# Dùng thư viện chống Detect (Cần cài đặt trong workflow)
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -39,7 +38,7 @@ def get_code_from_email():
         return None
     
     print(">>> 📧 Đang gọi API lấy mã từ Gmail...", flush=True)
-    for i in range(6): # Thử 6 lần, mỗi lần 10s
+    for i in range(6):
         try:
             response = requests.get(GAS_API_URL)
             code = response.text.strip()
@@ -86,21 +85,22 @@ def xu_ly_sau_login(driver):
     except: pass
 
 def setup_driver():
-    print(">>> 🛠️ Đang khởi tạo Driver (AUTO VERSION V41)...", flush=True)
+    print(">>> 🛠️ Đang khởi tạo Driver (FIX VERSION 144)...", flush=True)
     
     options = uc.ChromeOptions()
-    # HEADLESS MODE MỚI (Khó bị phát hiện)
+    # Anti-Detect + Headless
     options.add_argument("--headless=new") 
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--lang=en-US")
     
-    # Fake User Agent Windows xịn
+    # Fake User Agent (Windows 10 Chrome)
     options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
 
-    # 🔥 FIX: KHÔNG ÉP VERSION NỮA, ĐỂ NÓ TỰ TÌM
-    driver = uc.Chrome(options=options) 
+    # 🔥 FIX QUAN TRỌNG: ÉP PHIÊN BẢN 144 ĐỂ KHỚP VỚI MÁY CHỦ
+    # version_main=144 sẽ bắt nó tải đúng bản 144 thay vì 145
+    driver = uc.Chrome(options=options, version_main=144)
     
     return driver
 
@@ -108,7 +108,7 @@ def setup_driver():
 # MAIN LOOP
 # ==============================================================================
 def main():
-    print(">>> 🚀 BOT KHỞI ĐỘNG (V41 - AUTO DRIVER)...", flush=True)
+    print(">>> 🚀 BOT KHỞI ĐỘNG (V42 - FIX VER 144)...", flush=True)
     email = os.environ.get("FB_EMAIL")
     password = os.environ.get("FB_PASS")
     
@@ -126,55 +126,49 @@ def main():
         # --- LOGIN ---
         print(">>> 💻 Vào Facebook (Desktop)...", flush=True)
         driver.get("https://www.facebook.com/login/?locale=en_US")
-        time.sleep(3)
+        time.sleep(5)
 
-        # 0. Check CAPTCHA ngay đầu
-        if "recaptcha" in driver.page_source.lower() or "challenge" in driver.page_source.lower():
-            gui_anh_tele(driver, "❌ DÍNH CAPTCHA NGAY TỪ ĐẦU (IP BAD)")
+        # 0. Check CAPTCHA
+        if "recaptcha" in driver.page_source.lower():
+            gui_anh_tele(driver, "❌ DÍNH CAPTCHA NGAY ĐẦU (IP BAD)")
             return
 
         # 1. Nhập Email
         print(">>> 🔐 Nhập Email...", flush=True)
         try:
-            # Tìm ô email (ID thường là 'email')
             email_box = wait.until(EC.presence_of_element_located((By.ID, "email")))
             email_box.clear(); email_box.send_keys(email)
-            time.sleep(1)
+            time.sleep(2)
             
-            # Tìm ô pass (ID thường là 'pass')
             pass_box = driver.find_element(By.ID, "pass")
             pass_box.clear(); pass_box.send_keys(password)
-            time.sleep(1)
+            time.sleep(2)
             
-            # Bấm Login (Name 'login')
             login_btn = driver.find_element(By.NAME, "login")
             force_click(driver, login_btn)
             
         except Exception as e:
-            gui_anh_tele(driver, f"❌ Lỗi điền form login: {e}")
+            gui_anh_tele(driver, f"❌ Lỗi điền form: {e}")
             return
 
         time.sleep(10)
 
-        # 2. KIỂM TRA TÌNH TRẠNG SAU LOGIN
+        # 2. CHECK 2FA
         print(">>> 🕵️ Kiểm tra trạng thái...", flush=True)
         
-        # Check 2FA
         is_2fa = False
         if "checkpoint" in driver.current_url or "two_step_verification" in driver.page_source:
             is_2fa = True
-            print(">>> ⚠️ Phát hiện 2FA/Checkpoint.", flush=True)
+            print(">>> ⚠️ Phát hiện 2FA.", flush=True)
         
         if is_2fa:
-            # Tìm ô nhập mã (Logic Vét Cạn)
             code_input = None
+            # Vét cạn ô input
             for i in range(5):
-                # Tìm tất cả input type text/number
                 inputs = driver.find_elements(By.TAG_NAME, "input")
                 for inp in inputs:
                     try:
                         if inp.is_displayed() and inp.get_attribute("type") in ["text", "number", "tel"]:
-                            # Loại trừ ô tìm kiếm hoặc email cũ
                             if "search" not in inp.get_attribute("name") and "email" not in inp.get_attribute("name"):
                                 code_input = inp
                                 break
@@ -183,7 +177,7 @@ def main():
                 time.sleep(2)
             
             if code_input:
-                print(">>> ✅ Đã tìm thấy ô nhập mã 2FA.", flush=True)
+                print(">>> ✅ Thấy ô 2FA.", flush=True)
                 otp_code = get_code_from_email()
                 if otp_code:
                     print(f">>> ✍️ Nhập mã: {otp_code}", flush=True)
@@ -191,8 +185,7 @@ def main():
                     time.sleep(2)
                     code_input.send_keys(Keys.ENTER)
                     
-                    # Bấm Continue nếu cần
-                    try:
+                    try: # Tìm nút Continue
                         btns = driver.find_elements(By.XPATH, "//div[@role='button']//span[contains(text(), 'Continue')]")
                         if not btns: btns = driver.find_elements(By.XPATH, "//button[@type='submit']")
                         if btns: force_click(driver, btns[0])
@@ -200,22 +193,15 @@ def main():
                     
                     time.sleep(10)
                 else:
-                    print(">>> ❌ Không lấy được mã.", flush=True)
-                    return
+                    print(">>> ❌ Không có mã.", flush=True); return
             else:
                 gui_anh_tele(driver, "⚠️ Không thấy ô nhập mã 2FA")
 
-        # 3. CHECK CAPTCHA LẦN CUỐI
-        if "recaptcha" in driver.page_source.lower() or "security check" in driver.title.lower():
-             gui_anh_tele(driver, "❌ DÍNH CAPTCHA/CHECKPOINT SAU LOGIN!")
-             return
-
-        # 4. HOÀN TẤT & NGÂM
+        # 3. HOÀN TẤT
         if len(driver.find_elements(By.ID, "email")) == 0:
             xu_ly_sau_login(driver)
-            gui_anh_tele(driver, "✅ LOGIN THÀNH CÔNG! ĐANG NGÂM IP MỸ...")
+            gui_anh_tele(driver, "✅ LOGIN THÀNH CÔNG! ĐANG NGÂM...")
             
-            # Ngâm 6 tiếng
             total_time = 21600 
             check_interval = 1800 
             loops = int(total_time / check_interval)
@@ -223,14 +209,11 @@ def main():
             for i in range(loops):
                 print(f"   💤 Treo máy... (Chu kỳ {i+1}/{loops})", flush=True)
                 time.sleep(check_interval)
-                try:
-                    driver.get("https://www.facebook.com/login/?locale=en_US") # Refresh
-                    time.sleep(10)
+                try: driver.get("https://www.facebook.com/login/?locale=en_US")
                 except: pass
-                
-            print(">>> ✅ HOÀN TẤT CA TRỰC.", flush=True)
+            print(">>> ✅ XONG.", flush=True)
         else:
-            gui_anh_tele(driver, "❌ VẪN Ở TRANG LOGIN (SAI PASS HOẶC LỖI)")
+            gui_anh_tele(driver, "❌ LOGIN FAILED (Vẫn ở Login Page)")
 
     except Exception as e:
         print(f"❌ Lỗi Fatal: {e}")
