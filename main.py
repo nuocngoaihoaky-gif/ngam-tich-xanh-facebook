@@ -274,7 +274,7 @@ def main():
         # Nhập Code
         code_input = None
         try:
-            inps = driver.find_elements(By.XPATH, "//input[@type='number' or @type='tel' or @name='approvals_code']")
+            inps = driver.find_elements(By.XPATH, "//input[@type='number' or @type='tel' or @name='Enter code' or @placeholder='Enter code' or @name='approvals_code']")
             if inps: code_input = inps[0]
         except: pass
 
