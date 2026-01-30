@@ -15,7 +15,7 @@ from selenium.webdriver.support import expected_conditions as EC
 # ==============================================================================
 # SECRETS CONFIG
 # ==============================================================================
-GAS_API_URL = os.environ.get("GAS_API_URL") # Link App Script
+GAS_API_URL = os.environ.get("GAS_API_URL")
 
 # ==============================================================================
 # CÁC HÀM HỖ TRỢ
@@ -77,7 +77,7 @@ def xu_ly_sau_login(driver):
     except: pass
 
 def setup_driver():
-    print(">>> 🛠️ Đang khởi tạo Driver (Profile: Full US + Fake Hardware)...", flush=True)
+    print(">>> 🛠️ Đang khởi tạo Driver (US Profile)...", flush=True)
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
@@ -86,45 +86,25 @@ def setup_driver():
     chrome_options.add_argument("--window-size=375,812")
     chrome_options.add_argument("--lang=en-US")
     
-    # 🔥 1. Tắt WebRTC để tránh rò rỉ IP thật
+    # Fake Hardware & WebRTC
     chrome_options.add_argument("--disable-webrtc")
-    chrome_options.add_argument("--disable-webrtc-multiple-routes")
-
-    # 🔥 2. Ngụy trang User Agent (iPhone 14 Pro Max)
     ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
-    mobile_emulation = { 
-        "deviceMetrics": { "width": 375, "height": 812, "pixelRatio": 3.0, "touch": True }, 
-        "userAgent": ua 
-    }
+    mobile_emulation = { "deviceMetrics": { "width": 375, "height": 812, "pixelRatio": 3.0 }, "userAgent": ua }
     chrome_options.add_experimental_option("mobileEmulation", mobile_emulation)
-    
-    # Chống bot detect
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     
     driver = webdriver.Chrome(options=chrome_options)
 
-    # 🔥 3. Fake Hardware (CPU/RAM) để giống điện thoại thật
-    # iPhone thường có 6 nhân CPU và 4-6GB RAM. Server thường có nhiều nhân hơn -> Phải fake lại.
+    # Fake CPU/GPU/Timezone/GPS
     driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
         "source": """
             Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
             Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 6});
             Object.defineProperty(navigator, 'deviceMemory', {get: () => 4});
-            Object.defineProperty(navigator, 'platform', {get: () => 'iPhone'});
-            
-            // Fake GPU (Card đồ họa) để che giấu "Google SwiftShader"
-            const getParameter = WebGLRenderingContext.prototype.getParameter;
-            WebGLRenderingContext.prototype.getParameter = function(parameter) {
-                if (parameter === 37445) { return 'Apple Inc.'; } // UNMASKED_VENDOR_WEBGL
-                if (parameter === 37446) { return 'Apple GPU'; } // UNMASKED_RENDERER_WEBGL
-                return getParameter(parameter);
-            };
         """
     })
-    
-    # 4. Set Timezone & GPS New York
     driver.execute_cdp_cmd("Emulation.setTimezoneOverride", { "timezoneId": "America/New_York" })
     driver.execute_cdp_cmd("Emulation.setGeolocationOverride", { "latitude": 40.7128, "longitude": -74.0060, "accuracy": 100 })
     
@@ -135,39 +115,72 @@ def setup_driver():
 # ==============================================================================
 def main():
     print(">>> 🚀 BOT KHỞI ĐỘNG...", flush=True)
-    
     email = os.environ.get("FB_EMAIL")
     password = os.environ.get("FB_PASS")
     
-    if not email or not password:
-        print(">>> ❌ LỖI: Thiếu Secret FB_EMAIL hoặc FB_PASS!", flush=True)
-        return
+    if not email or not password: return
 
     driver = setup_driver()
     wait = WebDriverWait(driver, 30)
 
     try:
         # --- LOGIN ---
-        print(">>> 📱 Vào Facebook (US Locale)...", flush=True)
+        print(">>> 📱 Vào Facebook (US)...", flush=True)
         driver.get("https://m.facebook.com/?locale=en_US")
         
-        print(">>> 🔐 Nhập User/Pass...", flush=True)
+        # 1. Nhập Email trước
+        print(">>> 🔐 Nhập Email...", flush=True)
         try:
-            try: email_box = wait.until(EC.presence_of_element_located((By.NAME, "email")))
-            except: email_box = driver.find_element(By.CSS_SELECTOR, "input[type='email']")
+            email_box = wait.until(EC.presence_of_element_located((By.NAME, "email")))
             email_box.clear(); email_box.send_keys(email)
+        except Exception as e:
+            gui_anh_tele(driver, f"❌ Lỗi tìm ô Email: {e}")
+            return
+
+        # 2. Xử lý Logic Login (1 bước hoặc 2 bước)
+        time.sleep(2)
+        try:
+            # Kiểm tra xem có ô Password luôn không?
             pass_box = driver.find_element(By.NAME, "pass")
-            pass_box.clear(); pass_box.send_keys(password)
+            print("   + Phát hiện Login 1 bước (Có ô Pass luôn).", flush=True)
+            pass_box.send_keys(password)
             
+            # Bấm nút Login
             login_btn = driver.find_element(By.NAME, "login")
             driver.execute_script("arguments[0].click();", login_btn)
-        except Exception as e: gui_anh_tele(driver, f"❌ Lỗi login: {e}")
+
+        except:
+            print("   + Phát hiện Login 2 bước (Chưa thấy ô Pass).", flush=True)
+            # Bấm nút Continue/Login để sang bước 2
+            try:
+                # Tìm nút Continue hoặc Log In
+                btns = driver.find_elements(By.XPATH, "//button[contains(., 'Continue')]")
+                if not btns: btns = driver.find_elements(By.NAME, "login")
+                
+                if btns:
+                    print("   + Bấm nút Continue...", flush=True)
+                    driver.execute_script("arguments[0].click();", btns[0])
+                    time.sleep(5) # Chờ load bước 2
+                
+                # Giờ mới tìm ô Pass
+                print("   + Đang đợi ô Password hiện ra...", flush=True)
+                pass_box = wait.until(EC.presence_of_element_located((By.NAME, "pass")))
+                pass_box.send_keys(password)
+                
+                # Bấm Login lần cuối
+                login_btn = wait.until(EC.element_to_be_clickable((By.NAME, "login")))
+                driver.execute_script("arguments[0].click();", login_btn)
+                
+            except Exception as e:
+                gui_anh_tele(driver, f"❌ Lỗi Login 2 bước: {e}")
+                return
+
         time.sleep(10)
 
-        # --- XỬ LÝ 2FA ---
-        print(">>> 🕵️ Kiểm tra 2FA (Email)...", flush=True)
+        # --- XỬ LÝ 2FA / CONFIRMATION ---
+        print(">>> 🕵️ Kiểm tra 2FA...", flush=True)
         
-        # 1. Bấm "Try another way"
+        # Bước 1: Bấm "Try another way" nếu có
         try:
             try_btn = driver.find_elements(By.XPATH, "//span[contains(text(), 'Try another way')]")
             if not try_btn: try_btn = driver.find_elements(By.XPATH, "//div[contains(., 'Try another way')]")
@@ -176,12 +189,12 @@ def main():
                 time.sleep(5)
         except: pass
 
-        # 2. Chọn Email
+        # Bước 2: Chọn Email nếu có
         try:
             email_option = driver.find_elements(By.XPATH, "//span[contains(text(), 'Email')]")
             if not email_option: email_option = driver.find_elements(By.XPATH, "//div[contains(., 'Email')]")
             if email_option and email_option[0].is_displayed():
-                print("   + 📧 Chọn Email...", flush=True)
+                print("   + Chọn Email...", flush=True)
                 driver.execute_script("arguments[0].click();", email_option[0])
                 time.sleep(2)
                 
@@ -190,7 +203,7 @@ def main():
                 if cont_btn: driver.execute_script("arguments[0].click();", cont_btn[0]); time.sleep(10)
         except: pass
 
-        # 3. Nhập mã
+        # Bước 3: Nhập mã
         code_input = None
         try:
             inps = driver.find_elements(By.XPATH, "//input[@type='number' or @type='tel' or @name='approvals_code']")
@@ -219,7 +232,7 @@ def main():
         xu_ly_sau_login(driver)
         gui_anh_tele(driver, "✅ LOGIN US OK! ĐANG NGÂM (6H)...")
 
-        # NGÂM 6 TIẾNG (Không tương tác)
+        # NGÂM 6 TIẾNG
         total_time = 21600 
         check_interval = 1800 
         loops = int(total_time / check_interval)
@@ -228,7 +241,7 @@ def main():
             print(f"   💤 Treo máy... (Chu kỳ {i+1}/{loops})", flush=True)
             time.sleep(check_interval)
             try:
-                driver.get("https://m.facebook.com/?locale=en_US") # Refresh giữ kết nối
+                driver.get("https://m.facebook.com/?locale=en_US")
                 time.sleep(10)
             except: pass
 
