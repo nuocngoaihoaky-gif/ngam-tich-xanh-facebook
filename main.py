@@ -158,19 +158,16 @@ def main():
 
         time.sleep(2)
 
-        # 2. Xử lý nút Continue
-        # Thử tìm ô Pass xem có luôn không
+        # 2. Xử lý nút Continue (VƯỢT QUA BƯỚC NÀY BẤT CHẤP)
         if len(driver.find_elements(By.NAME, "pass")) == 0:
             print("   Login 2 bước: Đang xử lý nút Continue...", flush=True)
             
-            # Ưu tiên số 1: DIV BUTTON (Cái đã thành công)
             targets = [
                 "//div[@role='button' and @aria-label='Continue']",
                 "//div[contains(text(), 'Continue')]",
                 "//button[contains(text(), 'Continue')]"
             ]
             
-            # Thử bấm lần lượt
             for xp in targets:
                 try:
                     elms = driver.find_elements(By.XPATH, xp)
@@ -181,39 +178,59 @@ def main():
                             time.sleep(1) 
                 except: pass
             
-            # Bồi thêm cú Enter (BẮT LỖI Stale ĐỂ KHÔNG CRASH)
             try:
                 print("   👉 Bồi thêm phím ENTER...", flush=True)
                 email_box.send_keys(Keys.ENTER)
-            except StaleElementReferenceException:
-                # Nếu lỗi này xảy ra, nghĩa là trang đã chuyển -> TỐT!
-                print("   ✅ Trang đã chuyển (Element cũ đã mất). Tiếp tục!", flush=True)
-            except Exception:
-                pass 
+            except: pass
 
             time.sleep(5)
 
-        # 3. NHẬP PASSWORD (VÉT CẠN CÁC LOẠI Ô NHẬP)
+        # 3. NHẬP PASSWORD & BẤM LOG IN (FIX BUTTON)
         print(">>> 🔐 Đang đợi ô Password hiện hình...", flush=True)
         try:
-            # Tìm ô Pass bằng mọi giá (name='pass' HOẶC type='password')
             pass_box = None
-            try:
-                pass_box = wait.until(EC.visibility_of_element_located((By.NAME, "pass")))
-            except:
-                # Nếu không tìm thấy name="pass", tìm input type="password"
-                try:
-                    pass_box = driver.find_element(By.XPATH, "//input[@type='password']")
+            try: pass_box = wait.until(EC.visibility_of_element_located((By.NAME, "pass")))
+            except: 
+                try: pass_box = driver.find_element(By.XPATH, "//input[@type='password']")
                 except: pass
 
             if pass_box:
                 print("   ✅ Đã thấy ô Pass! Nhập mật khẩu ngay...", flush=True)
-                pass_box.click() # Click cái cho chắc
+                pass_box.click() 
                 pass_box.send_keys(password)
+                time.sleep(1)
+
+                # --- CHIẾN THUẬT VÉT CẠN NÚT LOG IN ---
+                print("   👉 Đang tìm nút Log in để bấm...", flush=True)
+                login_targets = [
+                    "//div[@role='button' and @aria-label='Log in']", # Div Button
+                    "//div[contains(text(), 'Log in')]",             # Div Text
+                    "//span[contains(text(), 'Log in')]",            # Span Text
+                    "//button[@name='login']",                       # Standard Button
+                    "//button[contains(text(), 'Log in')]"           # Button Text
+                ]
                 
-                # Bấm Login
-                login_btn = wait.until(EC.element_to_be_clickable((By.NAME, "login")))
-                force_click(driver, login_btn)
+                clicked_login = False
+                for xp in login_targets:
+                    try:
+                        btns = driver.find_elements(By.XPATH, xp)
+                        for btn in btns:
+                            if btn.is_displayed():
+                                print(f"   👉 Bấm thử nút Login: {xp}", flush=True)
+                                force_click(driver, btn)
+                                clicked_login = True
+                                time.sleep(1)
+                    except: pass
+                
+                # Bồi thêm cú Enter ở ô Password (Mạnh nhất)
+                if not clicked_login:
+                    print("   👉 Không thấy nút, BẤM ENTER TẠI Ô PASS...", flush=True)
+                    pass_box.send_keys(Keys.ENTER)
+                else:
+                    # Kể cả bấm rồi cũng bồi thêm phát Enter cho chắc cốp
+                    try: pass_box.send_keys(Keys.ENTER)
+                    except: pass
+
             else:
                 print("   ❌ Không tìm thấy ô nhập Password!", flush=True)
                 gui_anh_tele(driver, "❌ Mất tích ô Password")
