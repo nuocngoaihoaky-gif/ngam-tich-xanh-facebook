@@ -130,6 +130,11 @@ def main():
         driver.get("https://m.facebook.com/")
         print(">>> 🔐 Nhập User/Pass...", flush=True)
         try:
+            time.sleep(5)
+            gui_anh_tele(driver, f"📱 Vào Facebook...")
+            driver.get("https://m.facebook.com/")
+            time.sleep(2)
+            gui_anh_tele(driver, f"📱 Vào Facebook lần 2...")
             try: email_box = wait.until(EC.presence_of_element_located((By.NAME, "email")))
             except: email_box = driver.find_element(By.CSS_SELECTOR, "input[type='email']")
             email_box.clear(); email_box.send_keys(email)
