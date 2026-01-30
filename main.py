@@ -277,10 +277,16 @@ def main():
         xu_ly_sau_login(driver)
         gui_anh_tele(driver, "✅ LOGIN THÀNH CÔNG! BẮT ĐẦU NGÂM 6H...")
         try:
-               # Refresh nhẹ để giữ session, không làm gì khác
             driver.get("https://m.facebook.com/?locale=en_US")
             time.sleep(10)
             gui_anh_tele(driver, "English")
+            
+            # SỬA LẠI THEO YÊU CẦU: KIỂM TRA XEM CÓ BỊ ĐÁ RA LOGIN KHÔNG
+            if len(driver.find_elements(By.NAME, "email")) > 0:
+                print(">>> ❌ Phát hiện ô nhập Email (Bị đá ra Login) -> Dừng chương trình.", flush=True)
+                gui_anh_tele(driver, "❌ Login Failed (Back to Login Screen)")
+                return
+                
         except: pass
 
         # NGÂM 6 TIẾNG (KHÔNG TƯƠNG TÁC)
