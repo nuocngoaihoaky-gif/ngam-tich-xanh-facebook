@@ -12,7 +12,6 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
 
 # ==============================================================================
 # CẤU HÌNH API
@@ -158,7 +157,7 @@ def main():
 
         time.sleep(2)
 
-        # 2. Xử lý nút Continue (Nếu là Login 2 bước)
+        # 2. Xử lý nút Continue (Vét cạn div/button/enter)
         if len(driver.find_elements(By.NAME, "pass")) == 0:
             print("   Login 2 bước: Đang xử lý nút Continue...", flush=True)
             targets = [
@@ -176,7 +175,6 @@ def main():
                             time.sleep(1)
                 except: pass
             
-            # Bồi thêm Enter cho chắc
             try: email_box.send_keys(Keys.ENTER)
             except: pass
             time.sleep(5)
@@ -193,7 +191,7 @@ def main():
             if pass_box:
                 pass_box.click(); pass_box.send_keys(password); time.sleep(1)
                 
-                # Bấm Login (Vét cạn các loại nút)
+                # Bấm Login
                 clicked_login = False
                 login_targets = [
                     "//div[@role='button' and @aria-label='Log in']", 
@@ -215,10 +213,10 @@ def main():
 
         time.sleep(10)
 
-        # --- XỬ LÝ 2FA (ĐÃ CẬP NHẬT SELECTOR INPUT) ---
+        # --- XỬ LÝ 2FA (FIX MỚI NHẤT) ---
         print(">>> 🕵️ Kiểm tra 2FA...", flush=True)
         
-        # 1. Bấm "Try another way" -> Chọn Email
+        # 1. Bấm "Try another way" -> Chọn Email (Nếu bị hỏi)
         try:
             try_btn = driver.find_elements(By.XPATH, "//span[contains(text(), 'Try another way')]") or driver.find_elements(By.XPATH, "//div[contains(., 'Try another way')]")
             if try_btn and try_btn[0].is_displayed():
@@ -229,33 +227,30 @@ def main():
             email_opts = driver.find_elements(By.XPATH, "//span[contains(text(), 'Email')]")
             if email_opts and email_opts[0].is_displayed():
                 force_click(driver, email_opts[0]); time.sleep(2)
-                # Bấm Continue
                 c_btns = driver.find_elements(By.XPATH, "//div[@aria-label='Continue']") or driver.find_elements(By.XPATH, "//span[contains(text(), 'Continue')]")
                 if c_btns: force_click(driver, c_btns[0]); time.sleep(10)
         except: pass
 
-        # 2. TÌM Ô NHẬP MÃ (VÉT CẠN CÁC TRƯỜNG HỢP)
+        # 2. TÌM Ô NHẬP MÃ (CHIẾN THUẬT: TÌM BẤT CỨ CÁI Ô NÀO HIỆN RA)
+        # Vì bác bảo "cả màn hình có mỗi 1 ô", nên ta tìm tất cả input visible
+        print(">>> ❗ Đang tìm ô nhập mã (Vét cạn)...", flush=True)
         code_input = None
-        # Danh sách các kiểu ô nhập mã mà FB hay dùng
-        input_xpaths = [
-            "//input[@placeholder='Enter code']", # Kiểu mới nhất
-            "//input[@name='n']",                 # Kiểu rút gọn
-            "//input[@name='approvals_code']",    # Kiểu truyền thống
-            "//input[@type='number']",            # Kiểu chung chung
-            "//input[@type='tel']"                # Kiểu số điện thoại
-        ]
         
-        for xp in input_xpaths:
-            try:
-                inps = driver.find_elements(By.XPATH, xp)
-                if inps and inps[0].is_displayed():
-                    code_input = inps[0]
-                    print(f"   ✅ Đã tìm thấy ô nhập mã (Xpath: {xp})", flush=True)
+        # Ưu tiên 1: Theo Placeholder (Chuẩn nhất theo ảnh bác gửi)
+        try: code_input = driver.find_element(By.XPATH, "//input[@placeholder='Enter code']")
+        except: pass
+        
+        # Ưu tiên 2: Nếu không thấy, tìm TẤT CẢ ô input và lấy cái đầu tiên hiện ra
+        if not code_input:
+            all_inputs = driver.find_elements(By.TAG_NAME, "input")
+            for inp in all_inputs:
+                if inp.is_displayed() and inp.get_attribute("type") != "hidden":
+                    code_input = inp
+                    print(f"   👉 Tìm thấy input lạ: type={inp.get_attribute('type')}", flush=True)
                     break
-            except: pass
 
         if code_input:
-            print(">>> ❗ Đang lấy mã từ Email...", flush=True)
+            print(">>> ✅ Đã thấy ô nhập mã!", flush=True)
             otp_code = get_code_from_email()
             
             if otp_code:
@@ -271,10 +266,11 @@ def main():
                 except: pass
                 time.sleep(10)
             else:
-                print(">>> ❌ Không có mã. Tắt Bot.", flush=True)
+                print(">>> ❌ Không có mã từ Email. Tắt Bot.", flush=True)
                 return
         else:
-            # Nếu vẫn không thấy ô nhập thì chụp ảnh báo lỗi
+            # Nếu vẫn không thấy thì bot chịu, chụp ảnh để bác chửi tiếp
+            print(">>> ❌ Vẫn không tìm thấy ô nhập nào!", flush=True)
             gui_anh_tele(driver, "⚠️ Không tìm thấy ô nhập Code")
 
         # --- HOÀN TẤT & NGÂM ---
