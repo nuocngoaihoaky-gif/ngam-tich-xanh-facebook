@@ -4,7 +4,7 @@ on:
   schedule:
     # 1. TĂNG TẦN SUẤT: Chạy mỗi 30 phút
     # Để đảm bảo ngay khi ca cũ 6h kết thúc, ca mới sẽ nối đuôi ngay.
-    - cron: '*/30 * * * *'
+    - cron: '*/10 * * * *'
   
   # Cho phép bấm chạy tay
   workflow_dispatch:
