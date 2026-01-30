@@ -3,7 +3,6 @@ import random
 import os
 import sys
 import requests
-import pyotp
 from datetime import datetime
 import pytz
 from selenium import webdriver
