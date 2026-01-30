@@ -87,34 +87,25 @@ def xu_ly_sau_login(driver):
 
 def handle_captcha_aggressive(driver):
     """
-    Hàm xử lý CAPTCHA V49: Không cần check text, lao thẳng vào tìm Iframe
+    Hàm xử lý CAPTCHA V50: Vét cạn Iframe tìm nút Checkbox
     """
-    print(">>> 🛡️ Bắt đầu rà soát CAPTCHA (Chế độ Vét cạn)...", flush=True)
-    
-    # Cho nó 5 giây để load cái iframe nếu mạng lag
-    time.sleep(5)
+    print(">>> 🛡️ Đang rà soát CAPTCHA...", flush=True)
+    time.sleep(5) # Chờ iframe load
 
     try:
-        # Lấy danh sách TẤT CẢ thẻ iframe
         frames = driver.find_elements(By.TAG_NAME, "iframe")
-        print(f"   + Tìm thấy {len(frames)} Iframe. Đang soi từng cái...", flush=True)
+        print(f"   + Tìm thấy {len(frames)} Iframe.", flush=True)
 
         for i, frame in enumerate(frames):
             try:
-                # Lấy link src của iframe để xem có phải hàng Google không
                 src = frame.get_attribute("src") or ""
                 name = frame.get_attribute("name") or ""
                 
-                # Dấu hiệu nhận biết Iframe Captcha
+                # Chỉ chui vào iframe của Google/Recaptcha
                 if "recaptcha" in src or "google.com" in src or "recaptcha" in name:
-                    print(f"   👉 Iframe số {i} có mùi CAPTCHA! Đang chui vào...", flush=True)
-                    
-                    # Chuyển ngữ cảnh vào trong iframe
+                    print(f"   👉 Iframe {i} nghi vấn. Đang chui vào...", flush=True)
                     driver.switch_to.frame(frame)
                     
-                    # Tìm cái ô vuông checkbox
-                    # Class chuẩn: recaptcha-checkbox-border
-                    # ID chuẩn: recaptcha-anchor
                     targets = [
                         (By.CLASS_NAME, "recaptcha-checkbox-border"),
                         (By.ID, "recaptcha-anchor"),
@@ -126,45 +117,43 @@ def handle_captcha_aggressive(driver):
                         try:
                             elm = driver.find_element(method, selector)
                             if elm:
-                                print(f"   ✅ BINGO! Đã tìm thấy nút Checkbox ({selector}). BẤM!", flush=True)
+                                print(f"   ✅ BINGO! Đã bấm vào nút CAPTCHA!", flush=True)
                                 driver.execute_script("arguments[0].click();", elm)
                                 clicked = True
                                 break
                         except: pass
                     
                     if clicked:
-                        gui_anh_tele(driver, "📸 Đã bấm CAPTCHA (V49)")
-                        time.sleep(5) # Chờ xác minh
+                        gui_anh_tele(driver, "📸 Đã bấm CAPTCHA")
+                        time.sleep(5)
                         driver.switch_to.default_content()
-                        return True # Đã xử lý xong, thoát luôn
+                        return True
                     
-                    # Nếu vào nhầm iframe, thoát ra để tìm tiếp
                     driver.switch_to.default_content()
                     
-            except Exception as e:
-                # Nếu lỗi khi switch frame, quay về mặc định
+            except:
                 driver.switch_to.default_content()
                 
     except Exception as e:
         print(f"   ! Lỗi quét iframe: {e}")
-        
-    print("   - Không tìm thấy/Không bấm được CAPTCHA nào.", flush=True)
     return False
 
 def setup_driver():
-    print(">>> 🛠️ Đang khởi tạo Driver (V49 - IPHONE RECAPTCHA HUNTER)...", flush=True)
+    print(">>> 🛠️ Đang khởi tạo Driver (V50 - MANUAL IPHONE)...", flush=True)
     
     options = uc.ChromeOptions()
     options.add_argument("--headless=new") 
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    
+    # 🔥 FIX: THAY VÌ mobileEmulation, TA CẤU HÌNH THỦ CÔNG
+    # 1. Ép kích thước màn hình điện thoại
     options.add_argument("--window-size=375,812")
     options.add_argument("--lang=en-US")
     
-    # User Agent iPhone xịn
+    # 2. Ép User Agent của iPhone trực tiếp
     ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
-    mobile_emulation = { "deviceMetrics": { "width": 375, "height": 812, "pixelRatio": 3.0 }, "userAgent": ua }
-    options.add_experimental_option("mobileEmulation", mobile_emulation)
+    options.add_argument(f"--user-agent={ua}")
 
     # Fix Version 144
     driver = uc.Chrome(options=options, version_main=144)
@@ -237,11 +226,9 @@ def main():
                 # Bấm Login
                 clicked = False
                 try:
-                    # Tìm nút Login theo name hoặc text
                     login_btn = driver.find_element(By.NAME, "login")
                     force_click(driver, login_btn); clicked = True
                 except:
-                    # Fallback: tìm div login
                     divs = driver.find_elements(By.XPATH, "//div[@role='button']")
                     for d in divs:
                         if "log in" in d.text.lower():
@@ -253,14 +240,14 @@ def main():
         except Exception as e: return
 
         # ==================================================================
-        # 🔥 ĐIỂM SỬA CHỮA V49: GỌI HÀM VÉT CAPTCHA NGAY SAU KHI LOGIN
+        # 🔥 ĐIỂM CHÈN CAPTCHA SAU KHI BẤM LOGIN
         # ==================================================================
-        print(">>> ⏳ Đợi trang load để bắt CAPTCHA...", flush=True)
-        time.sleep(8) # Chờ iframe load lên
+        print(">>> ⏳ Đợi chuyển trang...", flush=True)
+        time.sleep(8) 
         
         handle_captcha_aggressive(driver)
         
-        # Nếu sau khi bấm captcha mà nó hiện nút Continue thì bấm luôn
+        # Bấm Continue nếu sau captcha nó hiện ra
         try:
             con_btns = driver.find_elements(By.XPATH, "//button[contains(text(), 'Continue')] | //span[contains(text(), 'Continue')]")
             if con_btns and con_btns[0].is_displayed():
