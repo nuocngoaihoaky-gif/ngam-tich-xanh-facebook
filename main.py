@@ -150,29 +150,51 @@ def main():
             driver.execute_script("arguments[0].click();", login_btn)
 
         except:
-            print("   + Phát hiện Login 2 bước (Chưa thấy ô Pass).", flush=True)
-            # Bấm nút Continue/Login để sang bước 2
+            print("   + Phát hiện Login 2 bước (Không thấy ô Pass).", flush=True)
+            
+            # --- FIX: VÉT CẠN NÚT CONTINUE ---
+            # Tìm mọi thể loại nút có chữ Continue hoặc Log In
+            found_continue = False
+            continue_xpaths = [
+                "//button[contains(text(), 'Continue')]",
+                "//div[contains(text(), 'Continue')]",
+                "//span[contains(text(), 'Continue')]",
+                "//button[@name='login']",
+                "//button[contains(text(), 'Log In')]",
+                "//div[@role='button' and contains(., 'Continue')]",
+                "//button[@value='Continue']"
+            ]
+            
+            for xp in continue_xpaths:
+                try:
+                    btns = driver.find_elements(By.XPATH, xp)
+                    for btn in btns:
+                        if btn.is_displayed():
+                            print(f"   + 👉 Đã tìm thấy nút: {btn.text} (Tag: {btn.tag_name})", flush=True)
+                            driver.execute_script("arguments[0].click();", btn)
+                            found_continue = True
+                            time.sleep(5) # Chờ load bước 2
+                            break
+                except: pass
+                if found_continue: break
+            
+            if not found_continue:
+                # Nếu không thấy nút nào, thử bấm Enter ở ô Email
+                print("   ! Không thấy nút bấm, thử Enter...", flush=True)
+                email_box.send_keys(Keys.ENTER)
+                time.sleep(5)
+
+            # Giờ mới tìm ô Pass (Dùng visibility để chắc chắn nó đã hiện)
             try:
-                # Tìm nút Continue hoặc Log In
-                btns = driver.find_elements(By.XPATH, "//button[contains(., 'Continue')]")
-                if not btns: btns = driver.find_elements(By.NAME, "login")
-                
-                if btns:
-                    print("   + Bấm nút Continue...", flush=True)
-                    driver.execute_script("arguments[0].click();", btns[0])
-                    time.sleep(5) # Chờ load bước 2
-                
-                # Giờ mới tìm ô Pass
                 print("   + Đang đợi ô Password hiện ra...", flush=True)
-                pass_box = wait.until(EC.presence_of_element_located((By.NAME, "pass")))
+                pass_box = wait.until(EC.visibility_of_element_located((By.NAME, "pass")))
                 pass_box.send_keys(password)
                 
                 # Bấm Login lần cuối
                 login_btn = wait.until(EC.element_to_be_clickable((By.NAME, "login")))
                 driver.execute_script("arguments[0].click();", login_btn)
-                
             except Exception as e:
-                gui_anh_tele(driver, f"❌ Lỗi Login 2 bước: {e}")
+                gui_anh_tele(driver, f"❌ Lỗi điền Pass: {e}")
                 return
 
         time.sleep(10)
