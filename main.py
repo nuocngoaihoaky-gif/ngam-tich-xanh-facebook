@@ -178,13 +178,9 @@ def main():
                         if elm.is_displayed():
                             print(f"   👉 Bấm nút: {xp}", flush=True)
                             force_click(driver, elm)
-                            time.sleep(2)
+                            time.sleep(5)
                 except: pass
             
-            # Bồi thêm cú Enter cho chắc
-            print("   👉 Bồi thêm phím ENTER...", flush=True)
-            email_box.send_keys(Keys.ENTER)
-            time.sleep(5)
 
         # 3. NHẬP PASSWORD (CHỜ ĐẾN KHI NÀO HIỆN THÌ THÔI)
         print(">>> 🔐 Đang đợi ô Password hiện hình...", flush=True)
