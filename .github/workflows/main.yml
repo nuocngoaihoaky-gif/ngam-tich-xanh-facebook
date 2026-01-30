@@ -2,30 +2,43 @@ name: Production_Infrastructure_Monitor
 
 on:
   schedule:
-    # SỬA: Chạy mỗi 6 tiếng (0h, 6h, 12h, 18h) vì Bot ngâm 6h mới tắt
-    - cron: '0 */6 * * *'
-  # Cho phép bấm chạy tay khi cần test
+    # 1. TĂNG TẦN SUẤT: Chạy mỗi 30 phút
+    # Để đảm bảo ngay khi ca cũ 6h kết thúc, ca mới sẽ nối đuôi ngay.
+    - cron: '*/30 * * * *'
+  
+  # Cho phép bấm chạy tay
   workflow_dispatch:
 
 jobs:
   system-check:
     runs-on: ubuntu-latest
-    # Cấp quyền ghi để có thể Kill job cũ (Quan trọng)
     permissions:
       actions: write
       contents: read
     
     steps:
-      # 1. CHIẾN THUẬT "DỌN ĐƯỜNG": Diệt Job cũ tránh xung đột
-      - name: Prune Stale Processes
+      # 2. CHIẾN THUẬT "KÍNH LÃO ĐẮC THỌ" (Skip if Running)
+      - name: Check Concurrent Runs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          runs=$(gh run list --repo ${{ github.repository }} --status in_progress --json databaseId --jq ".[] | select(.databaseId != ${{ github.run_id }}) | .databaseId")
-          for run_id in $runs; do
-            echo "Killing stale run: $run_id"
-            gh run cancel $run_id --repo ${{ github.repository }}
-          done
+          echo ">>> 🕵️ Đang kiểm tra xem có Bot nào đang chạy không..."
+          
+          # Lấy danh sách các run đang chạy (in_progress) trừ chính nó ra
+          running_jobs=$(gh run list --repo ${{ github.repository }} \
+            --workflow "Production_Infrastructure_Monitor" \
+            --status in_progress \
+            --json databaseId \
+            --jq ".[] | select(.databaseId != ${{ github.run_id }}) | .databaseId")
+          
+          if [ -n "$running_jobs" ]; then
+            echo ">>> ⚠️ PHÁT HIỆN BOT CŨ ĐANG CHẠY (IDs: $running_jobs)"
+            echo ">>> 🛑 Bot mới sẽ tự hủy để không làm phiền Bot cũ..."
+            gh run cancel ${{ github.run_id }}
+            sleep 30 # Đợi lệnh hủy có hiệu lực
+          else
+            echo ">>> ✅ Không có ai đang chạy cả. Sân khấu này là của tôi!"
+          fi
 
       - uses: actions/checkout@v3
 
@@ -33,26 +46,25 @@ jobs:
         with:
           python-version: '3.9'
 
-      # 2. CÀI ĐẶT THƯ VIỆN (Đã bỏ pyotp vì dùng API Gmail rồi)
+      # 3. CÀI ĐẶT
       - name: Install Dependencies
         run: |
           pip install selenium requests pytz undetected-chromedriver
 
-      # 3. CHẠY BOT (Cấu hình IP Mỹ & API Gmail)
+      # 4. CHẠY BOT (Timeout 365p ~ 6h5p để trừ hao)
       - name: Execute Diagnostics
         env:
           FB_EMAIL: ${{ secrets.FB_EMAIL }}
           FB_PASS: ${{ secrets.FB_PASS }}
-          GAS_API_URL: ${{ secrets.GAS_API_URL }}  # Thay cho FB_2FA_KEY
+          GAS_API_URL: ${{ secrets.GAS_API_URL }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        # Set timeout 360p (6h) khớp với code Python
-        timeout-minutes: 360
+        timeout-minutes: 365 
         run: python -u main.py
 
-      # 4. CHỤP ẢNH LỖI (Nếu bot sập bất ngờ)
+      # 5. CHỤP ẢNH LỖI (Nếu cần debug)
       - name: Upload Error Artifacts
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: debug-screenshots
