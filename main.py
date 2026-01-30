@@ -12,6 +12,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import StaleElementReferenceException, TimeoutException, NoSuchElementException
 
 # ==============================================================================
 # SECRETS CONFIG
@@ -157,15 +158,14 @@ def main():
 
         time.sleep(2)
 
-        # 2. Xử lý nút Continue (VƯỢT QUA BƯỚC NÀY BẤT CHẤP)
+        # 2. Xử lý nút Continue
         # Thử tìm ô Pass xem có luôn không
         if len(driver.find_elements(By.NAME, "pass")) == 0:
             print("   Login 2 bước: Đang xử lý nút Continue...", flush=True)
             
             # Ưu tiên số 1: DIV BUTTON (Cái đã thành công)
-            # Ưu tiên số 2: Enter
             targets = [
-                "//div[@role='button' and @aria-label='Continue']", # Cái này chuẩn nhất
+                "//div[@role='button' and @aria-label='Continue']",
                 "//div[contains(text(), 'Continue')]",
                 "//button[contains(text(), 'Continue')]"
             ]
@@ -178,24 +178,49 @@ def main():
                         if elm.is_displayed():
                             print(f"   👉 Bấm nút: {xp}", flush=True)
                             force_click(driver, elm)
-                            time.sleep(5)
+                            time.sleep(1) 
                 except: pass
             
+            # Bồi thêm cú Enter (BẮT LỖI Stale ĐỂ KHÔNG CRASH)
+            try:
+                print("   👉 Bồi thêm phím ENTER...", flush=True)
+                email_box.send_keys(Keys.ENTER)
+            except StaleElementReferenceException:
+                # Nếu lỗi này xảy ra, nghĩa là trang đã chuyển -> TỐT!
+                print("   ✅ Trang đã chuyển (Element cũ đã mất). Tiếp tục!", flush=True)
+            except Exception:
+                pass 
 
-        # 3. NHẬP PASSWORD (CHỜ ĐẾN KHI NÀO HIỆN THÌ THÔI)
+            time.sleep(5)
+
+        # 3. NHẬP PASSWORD (VÉT CẠN CÁC LOẠI Ô NHẬP)
         print(">>> 🔐 Đang đợi ô Password hiện hình...", flush=True)
         try:
-            # wait.until sẽ lì lợm đợi 40s, không quan tâm bước trước báo lỗi hay không
-            pass_box = wait.until(EC.visibility_of_element_located((By.NAME, "pass")))
-            print("   ✅ Đã thấy ô Pass! Nhập mật khẩu ngay...", flush=True)
-            pass_box.send_keys(password)
-            
-            # Bấm Login
-            login_btn = wait.until(EC.element_to_be_clickable((By.NAME, "login")))
-            force_click(driver, login_btn)
+            # Tìm ô Pass bằng mọi giá (name='pass' HOẶC type='password')
+            pass_box = None
+            try:
+                pass_box = wait.until(EC.visibility_of_element_located((By.NAME, "pass")))
+            except:
+                # Nếu không tìm thấy name="pass", tìm input type="password"
+                try:
+                    pass_box = driver.find_element(By.XPATH, "//input[@type='password']")
+                except: pass
+
+            if pass_box:
+                print("   ✅ Đã thấy ô Pass! Nhập mật khẩu ngay...", flush=True)
+                pass_box.click() # Click cái cho chắc
+                pass_box.send_keys(password)
+                
+                # Bấm Login
+                login_btn = wait.until(EC.element_to_be_clickable((By.NAME, "login")))
+                force_click(driver, login_btn)
+            else:
+                print("   ❌ Không tìm thấy ô nhập Password!", flush=True)
+                gui_anh_tele(driver, "❌ Mất tích ô Password")
+                return
             
         except Exception as e:
-            gui_anh_tele(driver, f"❌ Chịu thua ô Password: {e}")
+            gui_anh_tele(driver, f"❌ Lỗi đoạn nhập Pass: {e}")
             return
 
         time.sleep(10)
@@ -203,7 +228,7 @@ def main():
         # --- XỬ LÝ 2FA ---
         print(">>> 🕵️ Kiểm tra 2FA...", flush=True)
         
-        # Click "Try another way" -> "Email" -> "Continue"
+        # Click "Try another way"
         try:
             try_btn = driver.find_elements(By.XPATH, "//span[contains(text(), 'Try another way')]") or driver.find_elements(By.XPATH, "//div[contains(., 'Try another way')]")
             if try_btn and try_btn[0].is_displayed():
@@ -211,15 +236,22 @@ def main():
                 time.sleep(5)
         except: pass
 
+        # Chọn Email
         try:
             email_opts = driver.find_elements(By.XPATH, "//span[contains(text(), 'Email')]") or driver.find_elements(By.XPATH, "//div[contains(., 'Email')]")
             if email_opts and email_opts[0].is_displayed():
                 print("   + Chọn Email...", flush=True)
                 force_click(driver, email_opts[0])
                 time.sleep(2)
+                
                 # Bấm Continue 2FA
-                c_btns = driver.find_elements(By.XPATH, "//div[@role='button' and @aria-label='Continue']") or driver.find_elements(By.XPATH, "//span[contains(text(), 'Continue')]")
-                if c_btns: force_click(driver, c_btns[0]); time.sleep(10)
+                c_xpaths = ["//div[@role='button' and @aria-label='Continue']", "//span[contains(text(), 'Continue')]"]
+                for cxp in c_xpaths:
+                    c_btns = driver.find_elements(By.XPATH, cxp)
+                    if c_btns and c_btns[0].is_displayed():
+                        force_click(driver, c_btns[0])
+                        time.sleep(10)
+                        break
         except: pass
 
         # Nhập Code
