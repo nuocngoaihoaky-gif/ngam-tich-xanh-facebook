@@ -152,35 +152,41 @@ def main():
         except:
             print("   + Phát hiện Login 2 bước (Không thấy ô Pass).", flush=True)
             
-            # --- FIX: ÁP DỤNG CODE CỦA BÁC + VÉT CẠN ---
-            found_continue = False
-            continue_xpaths = [
-                "//div[@role='button' and @aria-label='Continue']", 
-                "//div[@role='button' and @aria-label='Tiếp tục']",
-                "//button[contains(text(), 'Continue')]",
-                "//div[contains(text(), 'Continue')]",
+            # --- FIX CHUẨN: Bấm nút Continue dựa trên ảnh ---
+            # Ảnh 1: div có role=button và aria-label='Continue'
+            # Ảnh 2: span chứa chữ 'Continue'
+            
+            # Chiến thuật: Thử bấm cả cha lẫn con
+            targets = [
+                # 1. Bấm cái khung (Chuẩn nhất theo ảnh 1)
+                "//div[@role='button' and @aria-label='Continue']",
+                # 2. Bấm cái chữ (Chuẩn nhất theo ảnh 2)
                 "//span[contains(text(), 'Continue')]",
-                "//button[@name='login']"
+                # 3. Các biến thể khác
+                "//button[contains(text(), 'Continue')]",
+                "//div[contains(text(), 'Continue')]"
             ]
             
-            for xp in continue_xpaths:
+            clicked = False
+            for xp in targets:
                 try:
-                    btns = driver.find_elements(By.XPATH, xp)
-                    for btn in btns:
-                        if btn.is_displayed():
-                            print(f"   + 👉 Đã bấm nút: {xp}", flush=True)
-                            driver.execute_script("arguments[0].click();", btn)
-                            found_continue = True
-                            time.sleep(5) 
-                            break
+                    # Tìm tất cả phần tử khớp
+                    elms = driver.find_elements(By.XPATH, xp)
+                    for elm in elms:
+                        if elm.is_displayed():
+                            print(f"   👉 Thử bấm: {xp}", flush=True)
+                            # Dùng JS Click để xuyên qua mọi lớp phủ
+                            driver.execute_script("arguments[0].click();", elm)
+                            time.sleep(1) # Bấm xong chờ tí xem có chuyển trang không
+                            clicked = True
+                    if clicked: break
                 except: pass
-                if found_continue: break
             
-            if not found_continue:
-                # Nếu không thấy nút nào, thử Enter
-                print("   ! Không thấy nút bấm, thử Enter...", flush=True)
+            if not clicked:
+                print("   ⚠️ Không bấm được nút, thử nhấn ENTER tại ô Email...", flush=True)
                 email_box.send_keys(Keys.ENTER)
-                time.sleep(5)
+            
+            time.sleep(5)
 
             # Giờ mới tìm ô Pass
             try:
