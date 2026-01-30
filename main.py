@@ -126,7 +126,7 @@ def main():
         # --- LOGIN ---
         print(">>> 💻 Vào Facebook (Desktop)...", flush=True)
         # Vào trang www thay vì mbasic để giống người dùng máy tính
-        driver.get("https://www.facebook.com/")
+        driver.get("https://www.facebook.com/login/?locale=en_US")
         time.sleep(3)
 
         # 0. Check CAPTCHA ngay đầu
@@ -226,7 +226,7 @@ def main():
                 print(f"   💤 Treo máy... (Chu kỳ {i+1}/{loops})", flush=True)
                 time.sleep(check_interval)
                 try:
-                    driver.get("https://www.facebook.com/") # Refresh
+                    driver.get("https://www.facebook.com/login/?locale=en_US") # Refresh
                     time.sleep(10)
                 except: pass
                 
