@@ -83,6 +83,7 @@ jobs:
         run: |
           pip install selenium requests pytz undetected-chromedriver
 
+      # ================== CHỖ QUAN TRỌNG ĐÃ SỬA ==================
       - name: Execute Diagnostics
         env:
           FB_EMAIL: ${{ secrets.FB_EMAIL }}
@@ -90,6 +91,12 @@ jobs:
           GAS_API_URL: ${{ secrets.GAS_API_URL }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+          # ===== THÊM ĐỂ PYTHON GỌI ĐƯỢC GITHUB API =====
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF: ${{ github.ref }}
+
         timeout-minutes: 365
         run: python -u main.py
 
