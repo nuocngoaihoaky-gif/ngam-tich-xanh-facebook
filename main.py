@@ -338,9 +338,19 @@ def main():
                 gps_log = f"⚠️ GPS ERROR: {gps}"
         except Exception as e:
             gps_log = f"⚠️ GPS EXCEPTION: {e}"
+
+        locale_cookie = [c for c in driver.get_cookies() if c["name"] == "locale"]
+        if locale_cookie:
+            locale_log = f"🌐 LOCALE COOKIE: {locale_cookie[0]['value']}"
+        else:
+            locale_log = "⚠️ LOCALE COOKIE: NOT FOUND"
+
         gui_anh_tele(
             driver,
-            "✅ LOGIN THÀNH CÔNG! BẮT ĐẦU NGÂM 6H...\n" + gps_log
+            "✅ LOGIN THÀNH CÔNG! BẮT ĐẦU NGÂM 6H...\n"
+            + gps_log
+            + "\n"
+            + locale_log
         )
 
         # NGÂM 6 TIẾNG (KHÔNG TƯƠNG TÁC)
