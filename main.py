@@ -152,7 +152,7 @@ def main():
             email_box = wait.until(EC.presence_of_element_located((By.NAME, "email")))
             email_box.clear(); email_box.send_keys(email)
         except Exception as e:
-            gui_anh_tele(driver, f"❌ Lỗi tìm ô Email: {e}")
+            
             return
 
         time.sleep(2)
@@ -208,7 +208,7 @@ def main():
                 
                 if not clicked_login: pass_box.send_keys(Keys.ENTER)
             else:
-                gui_anh_tele(driver, "❌ Mất tích ô Password"); return
+                return
         except Exception as e: return
 
         time.sleep(10)
@@ -271,24 +271,24 @@ def main():
         else:
             # Nếu vẫn không thấy thì bot chịu, chụp ảnh để bác chửi tiếp
             print(">>> ❌ Vẫn không tìm thấy ô nhập nào!", flush=True)
-            gui_anh_tele(driver, "⚠️ Không tìm thấy ô nhập Code")
+            
 
         # --- HOÀN TẤT & NGÂM ---
         xu_ly_sau_login(driver)
-        gui_anh_tele(driver, "✅ LOGIN THÀNH CÔNG! BẮT ĐẦU NGÂM 6H...")
+        
         try:
             driver.get("https://m.facebook.com/?locale=en_US")
             time.sleep(10)
-            gui_anh_tele(driver, "English")
+            
             
             # SỬA LẠI THEO YÊU CẦU: KIỂM TRA XEM CÓ BỊ ĐÁ RA LOGIN KHÔNG
             if len(driver.find_elements(By.NAME, "email")) > 0:
                 print(">>> ❌ Phát hiện ô nhập Email (Bị đá ra Login) -> Dừng chương trình.", flush=True)
-                gui_anh_tele(driver, "❌ Login Failed (Back to Login Screen)")
+                
                 return
                 
         except: pass
-
+        gui_anh_tele(driver, "✅ LOGIN THÀNH CÔNG! BẮT ĐẦU NGÂM 6H...")
         # NGÂM 6 TIẾNG (KHÔNG TƯƠNG TÁC)
         total_time = 21600 
         check_interval = 1800 
