@@ -124,7 +124,7 @@ def setup_driver():
         """
     })
     driver.execute_cdp_cmd("Emulation.setTimezoneOverride", { "timezoneId": "America/New_York" })
-    driver.execute_cdp_cmd("Emulation.setGeolocationOverride", { "latitude": 40.7128, "longitude": -74.0060, "accuracy": 100 })
+    driver.execute_cdp_cmd("Emulation.setGeolocationOverride", { "latitude": 36.6676, "longitude": -78.3875, "accuracy": 150 })
     
     return driver
 
