@@ -382,7 +382,7 @@ def main():
         )
 
         # NGÂM 6 TIẾNG (KHÔNG TƯƠNG TÁC)
-        total_time = 21600 
+        total_time = 19800 
         check_interval = 1800 
         loops = int(total_time / check_interval)
         
@@ -398,8 +398,8 @@ def main():
                     "✅ VẪN SỐNG" + gps_log
                 )
             except: pass
-
         print(">>> ✅ XONG 6 TIẾNG.", flush=True)
+        goi_lai_workflow_khi_khong_co_ma()
 
     finally:
         driver.quit()
