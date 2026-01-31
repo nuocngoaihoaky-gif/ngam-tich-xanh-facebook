@@ -2,11 +2,7 @@ name: Production_Infrastructure_Monitor
 
 on:
   schedule:
-    # 1. TĂNG TẦN SUẤT: Chạy mỗi 30 phút
-    # Để đảm bảo ngay khi ca cũ 6h kết thúc, ca mới sẽ nối đuôi ngay.
     - cron: '*/10 * * * *'
-  
-  # Cho phép bấm chạy tay
   workflow_dispatch:
 
 jobs:
@@ -15,16 +11,37 @@ jobs:
     permissions:
       actions: write
       contents: read
-    
+
     steps:
-      # 2. CHIẾN THUẬT "KÍNH LÃO ĐẮC THỌ" (Skip if Running)
+      # ================== [NEW] CHECK IP BOYDTON (Y HỆT LÚC NÃY) ==================
+      - name: Check runner IP location (Boydton only)
+        run: |
+          echo "=== 🌍 CHECKING RUNNER IP (BOYDTON REQUIRED) ==="
+          IP_INFO=$(curl -s https://ipinfo.io/json)
+          echo "$IP_INFO"
+
+          CITY=$(echo "$IP_INFO" | jq -r '.city')
+          REGION=$(echo "$IP_INFO" | jq -r '.region')
+          COUNTRY=$(echo "$IP_INFO" | jq -r '.country')
+
+          echo "City    : $CITY"
+          echo "Region  : $REGION"
+          echo "Country : $COUNTRY"
+
+          if [[ "$CITY" != "Boydton" || "$REGION" != "Virginia" || "$COUNTRY" != "US" ]]; then
+            echo "❌ IP KHÔNG PHẢI Boydton, Virginia, US → DỪNG JOB"
+            exit 1
+          fi
+
+          echo "✅ IP ĐÚNG Boydton, Virginia, US → TIẾP TỤC"
+
+      # ================== LOGIC CŨ – GIỮ NGUYÊN ==================
       - name: Check Concurrent Runs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo ">>> 🕵️ Đang kiểm tra xem có Bot nào đang chạy không..."
           
-          # Lấy danh sách các run đang chạy (in_progress) trừ chính nó ra
           running_jobs=$(gh run list --repo ${{ github.repository }} \
             --workflow "Production_Infrastructure_Monitor" \
             --status in_progress \
@@ -35,7 +52,7 @@ jobs:
             echo ">>> ⚠️ PHÁT HIỆN BOT CŨ ĐANG CHẠY (IDs: $running_jobs)"
             echo ">>> 🛑 Bot mới sẽ tự hủy để không làm phiền Bot cũ..."
             gh run cancel ${{ github.run_id }}
-            sleep 30 # Đợi lệnh hủy có hiệu lực
+            sleep 30
           else
             echo ">>> ✅ Không có ai đang chạy cả. Sân khấu này là của tôi!"
           fi
@@ -46,12 +63,10 @@ jobs:
         with:
           python-version: '3.9'
 
-      # 3. CÀI ĐẶT
       - name: Install Dependencies
         run: |
           pip install selenium requests pytz undetected-chromedriver
 
-      # 4. CHẠY BOT (Timeout 365p ~ 6h5p để trừ hao)
       - name: Execute Diagnostics
         env:
           FB_EMAIL: ${{ secrets.FB_EMAIL }}
@@ -62,7 +77,6 @@ jobs:
         timeout-minutes: 365 
         run: python -u main.py
 
-      # 5. CHỤP ẢNH LỖI (Nếu cần debug)
       - name: Upload Error Artifacts
         if: failure()
         uses: actions/upload-artifact@v4
