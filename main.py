@@ -33,6 +33,30 @@ def gui_anh_tele(driver, caption="Ảnh chụp màn hình"):
         with open(filename, 'rb') as photo:
             requests.post(url, files={'photo': photo}, data={'chat_id': chat_id, 'caption': caption})
     except: pass
+# ==== LẤY GPS TỪ TRÌNH DUYỆT (TƯƠNG ĐƯƠNG console.log) ====
+gps_log = ""
+try:
+    gps = driver.execute_async_script("""
+        const cb = arguments[arguments.length - 1];
+        navigator.geolocation.getCurrentPosition(
+            p => {
+                cb({
+                    lat: p.coords.latitude,
+                    lng: p.coords.longitude,
+                    acc: p.coords.accuracy
+                });
+            },
+            e => {
+                cb({ error: "DENIED: " + e.message });
+            }
+        );
+    """)
+    if gps and "lat" in gps:
+        gps_log = f"📍 GPS: {gps['lat']}, {gps['lng']} | acc={gps['acc']}m"
+    else:
+        gps_log = f"⚠️ GPS ERROR: {gps}"
+except Exception as e:
+    gps_log = f"⚠️ GPS EXCEPTION: {e}"
 
 def get_code_from_email():
     if not GAS_API_URL:
@@ -107,7 +131,10 @@ def setup_driver():
     # Fake Hardware & WebRTC (Giả lập iPhone)
     chrome_options.add_argument("--disable-webrtc")
     ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
-    mobile_emulation = { "deviceMetrics": { "width": 375, "height": 812, "pixelRatio": 3.0 }, "userAgent": ua }
+    mobile_emulation = {
+        "deviceMetrics": { "width": 375, "height": 812, "pixelRatio": 3.0 },
+        "userAgent": ua
+    }
     chrome_options.add_experimental_option("mobileEmulation", mobile_emulation)
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
@@ -115,7 +142,20 @@ def setup_driver():
     
     driver = webdriver.Chrome(options=chrome_options)
 
-    # Fake CPU/GPU/Timezone/GPS (New York)
+    # ===================== AUTO-ALLOW GPS (THÊM) =====================
+    # Chỉ cấp quyền Location cho Facebook
+    try:
+        driver.execute_cdp_cmd(
+            "Browser.grantPermissions",
+            {
+                "origin": "https://m.facebook.com",
+                "permissions": ["geolocation"]
+            }
+        )
+    except:
+        pass
+
+    # Fake CPU/GPU/Timezone/GPS (Boydton, VA)
     driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
         "source": """
             Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
@@ -123,8 +163,18 @@ def setup_driver():
             Object.defineProperty(navigator, 'deviceMemory', {get: () => 4});
         """
     })
-    driver.execute_cdp_cmd("Emulation.setTimezoneOverride", { "timezoneId": "America/New_York" })
-    driver.execute_cdp_cmd("Emulation.setGeolocationOverride", { "latitude": 36.6676, "longitude": -78.3875, "accuracy": 150 })
+    driver.execute_cdp_cmd(
+        "Emulation.setTimezoneOverride",
+        { "timezoneId": "America/New_York" }
+    )
+    driver.execute_cdp_cmd(
+        "Emulation.setGeolocationOverride",
+        {
+            "latitude": 36.6676,
+            "longitude": -78.3875,
+            "accuracy": 150
+        }
+    )
     
     return driver
 
@@ -288,7 +338,11 @@ def main():
                 return
                 
         except: pass
-        gui_anh_tele(driver, "✅ LOGIN THÀNH CÔNG! BẮT ĐẦU NGÂM 6H...")
+        gui_anh_tele(
+            driver,
+            "✅ LOGIN THÀNH CÔNG! BẮT ĐẦU NGÂM 6H...\n" + gps_log
+        )
+
         # NGÂM 6 TIẾNG (KHÔNG TƯƠNG TÁC)
         total_time = 21600 
         check_interval = 1800 
