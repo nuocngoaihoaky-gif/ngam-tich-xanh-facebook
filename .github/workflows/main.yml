@@ -13,8 +13,33 @@ jobs:
       contents: read
 
     steps:
-      # ================== [NEW] CHECK IP BOYDTON (Y HỆT LÚC NÃY) ==================
+      # ================== CHECK CONCURRENT RUNS (ƯU TIÊN TRƯỚC) ==================
+      - name: Check Concurrent Runs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo ">>> 🕵️ Đang kiểm tra xem có Bot nào đang chạy không..."
+          
+          running_jobs=$(gh run list --repo ${{ github.repository }} \
+            --workflow "Production_Infrastructure_Monitor" \
+            --status in_progress \
+            --json databaseId \
+            --jq ".[] | select(.databaseId != ${{ github.run_id }}) | .databaseId")
+          
+          if [ -n "$running_jobs" ]; then
+            echo ">>> ⚠️ PHÁT HIỆN BOT KHÁC ĐANG CHẠY (IDs: $running_jobs)"
+            echo ">>> 🛑 Run hiện tại sẽ tự dừng ngay, không check IP nữa"
+            gh run cancel ${{ github.run_id }}
+            sleep 10
+            exit 0
+          else
+            echo ">>> ✅ Không có ai đang chạy cả. Tiếp tục workflow."
+          fi
+
+      # ================== CHECK IP BOYDTON ==================
       - name: Check runner IP location (Boydton only)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "=== 🌍 CHECKING RUNNER IP (BOYDTON REQUIRED) ==="
           IP_INFO=$(curl -s https://ipinfo.io/json)
@@ -29,34 +54,25 @@ jobs:
           echo "Country : $COUNTRY"
 
           if [[ "$CITY" != "Boydton" || "$REGION" != "Virginia" || "$COUNTRY" != "US" ]]; then
-            echo "❌ IP KHÔNG PHẢI Boydton, Virginia, US → DỪNG JOB"
+            echo "❌ IP KHÔNG PHẢI Boydton, Virginia, US"
+
+            echo "🚀 GỌI LẠI CHÍNH WORKFLOW NÀY (RUN MỚI HOÀN TOÀN)..."
+
+            curl -s -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              https://api.github.com/repos/${{ github.repository }}/actions/workflows/Production_Infrastructure_Monitor.yml/dispatches \
+              -d '{
+                "ref": "main"
+              }'
+
+            echo "🛑 DỪNG RUN HIỆN TẠI"
             exit 1
           fi
 
           echo "✅ IP ĐÚNG Boydton, Virginia, US → TIẾP TỤC"
 
       # ================== LOGIC CŨ – GIỮ NGUYÊN ==================
-      - name: Check Concurrent Runs
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo ">>> 🕵️ Đang kiểm tra xem có Bot nào đang chạy không..."
-          
-          running_jobs=$(gh run list --repo ${{ github.repository }} \
-            --workflow "Production_Infrastructure_Monitor" \
-            --status in_progress \
-            --json databaseId \
-            --jq ".[] | select(.databaseId != ${{ github.run_id }}) | .databaseId")
-          
-          if [ -n "$running_jobs" ]; then
-            echo ">>> ⚠️ PHÁT HIỆN BOT CŨ ĐANG CHẠY (IDs: $running_jobs)"
-            echo ">>> 🛑 Bot mới sẽ tự hủy để không làm phiền Bot cũ..."
-            gh run cancel ${{ github.run_id }}
-            sleep 30
-          else
-            echo ">>> ✅ Không có ai đang chạy cả. Sân khấu này là của tôi!"
-          fi
-
       - uses: actions/checkout@v3
 
       - uses: actions/setup-python@v4
@@ -74,7 +90,7 @@ jobs:
           GAS_API_URL: ${{ secrets.GAS_API_URL }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        timeout-minutes: 365 
+        timeout-minutes: 365
         run: python -u main.py
 
       - name: Upload Error Artifacts
