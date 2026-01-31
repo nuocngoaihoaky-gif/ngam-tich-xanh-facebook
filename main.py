@@ -17,6 +17,10 @@ from selenium.webdriver.support import expected_conditions as EC
 # CẤU HÌNH API
 # ==============================================================================
 GAS_API_URL = os.environ.get("GAS_API_URL")
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
+GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY")  # dạng owner/repo
+WORKFLOW_FILE = "Production_Infrastructure_Monitor.yml"
+GITHUB_REF = os.environ.get("GITHUB_REF", "refs/heads/main").replace("refs/heads/", "")
 
 # ==============================================================================
 # CÁC HÀM HỖ TRỢ
@@ -33,6 +37,29 @@ def gui_anh_tele(driver, caption="Ảnh chụp màn hình"):
         with open(filename, 'rb') as photo:
             requests.post(url, files={'photo': photo}, data={'chat_id': chat_id, 'caption': caption})
     except: pass
+
+def goi_lai_workflow_khi_khong_co_ma(reason="NO_CODE_6_TIMES"):
+    if not GITHUB_TOKEN or not GITHUB_REPOSITORY:
+        print(">>> ❌ Thiếu GITHUB_TOKEN hoặc GITHUB_REPOSITORY, không thể gọi workflow", flush=True)
+        return
+
+    url = f"https://api.github.com/repos/{GITHUB_REPOSITORY}/actions/workflows/{WORKFLOW_FILE}/dispatches"
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {GITHUB_TOKEN}"
+    }
+    data = {
+        "ref": GITHUB_REF
+    }
+
+    try:
+        print("🚀 GỌI LẠI WORKFLOW (RUN MỚI HOÀN TOÀN) DO KHÔNG LẤY ĐƯỢC MÃ...", flush=True)
+        r = requests.post(url, headers=headers, json=data, timeout=15)
+        print(f">>> GitHub API status: {r.status_code}", flush=True)
+        if r.text:
+            print(f">>> GitHub API response: {r.text}", flush=True)
+    except Exception as e:
+        print(f">>> ❌ Lỗi gọi GitHub API: {e}", flush=True)
 
 def get_code_from_email():
     if not GAS_API_URL:
@@ -293,6 +320,7 @@ def main():
                 time.sleep(10)
             else:
                 print(">>> ❌ Không có mã từ Email. Tắt Bot.", flush=True)
+                goi_lai_workflow_khi_khong_co_ma()
                 return
         else:
             # Nếu vẫn không thấy thì bot chịu, chụp ảnh để bác chửi tiếp
@@ -310,7 +338,7 @@ def main():
             # SỬA LẠI THEO YÊU CẦU: KIỂM TRA XEM CÓ BỊ ĐÁ RA LOGIN KHÔNG
             if len(driver.find_elements(By.NAME, "email")) > 0:
                 print(">>> ❌ Phát hiện ô nhập Email (Bị đá ra Login) -> Dừng chương trình.", flush=True)
-                
+                goi_lai_workflow_khi_khong_co_ma()
                 return
                 
         except: pass
