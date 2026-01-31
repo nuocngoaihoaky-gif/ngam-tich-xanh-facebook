@@ -33,30 +33,6 @@ def gui_anh_tele(driver, caption="Ảnh chụp màn hình"):
         with open(filename, 'rb') as photo:
             requests.post(url, files={'photo': photo}, data={'chat_id': chat_id, 'caption': caption})
     except: pass
-# ==== LẤY GPS TỪ TRÌNH DUYỆT (TƯƠNG ĐƯƠNG console.log) ====
-gps_log = ""
-try:
-    gps = driver.execute_async_script("""
-        const cb = arguments[arguments.length - 1];
-        navigator.geolocation.getCurrentPosition(
-            p => {
-                cb({
-                    lat: p.coords.latitude,
-                    lng: p.coords.longitude,
-                    acc: p.coords.accuracy
-                });
-            },
-            e => {
-                cb({ error: "DENIED: " + e.message });
-            }
-        );
-    """)
-    if gps and "lat" in gps:
-        gps_log = f"📍 GPS: {gps['lat']}, {gps['lng']} | acc={gps['acc']}m"
-    else:
-        gps_log = f"⚠️ GPS ERROR: {gps}"
-except Exception as e:
-    gps_log = f"⚠️ GPS EXCEPTION: {e}"
 
 def get_code_from_email():
     if not GAS_API_URL:
@@ -338,6 +314,30 @@ def main():
                 return
                 
         except: pass
+        # ==== LẤY GPS TỪ TRÌNH DUYỆT (TƯƠNG ĐƯƠNG console.log) ====
+        gps_log = ""
+        try:
+            gps = driver.execute_async_script("""
+                const cb = arguments[arguments.length - 1];
+                navigator.geolocation.getCurrentPosition(
+                    p => {
+                        cb({
+                            lat: p.coords.latitude,
+                            lng: p.coords.longitude,
+                            acc: p.coords.accuracy
+                        });
+                    },
+                    e => {
+                        cb({ error: "DENIED: " + e.message });
+                    }
+                );
+            """)
+            if gps and "lat" in gps:
+                gps_log = f"📍 GPS: {gps['lat']}, {gps['lng']} | acc={gps['acc']}m"
+            else:
+                gps_log = f"⚠️ GPS ERROR: {gps}"
+        except Exception as e:
+            gps_log = f"⚠️ GPS EXCEPTION: {e}"
         gui_anh_tele(
             driver,
             "✅ LOGIN THÀNH CÔNG! BẮT ĐẦU NGÂM 6H...\n" + gps_log
