@@ -393,10 +393,6 @@ def main():
                 # Refresh nhẹ để giữ session, không làm gì khác
                 driver.get("https://m.facebook.com/?locale=en_US")
                 time.sleep(10)
-                gui_anh_tele(
-                    driver,
-                    "✅ VẪN SỐNG" + gps_log
-                )
             except: pass
         print(">>> ✅ XONG 6 TIẾNG.", flush=True)
         goi_lai_workflow_khi_khong_co_ma()
