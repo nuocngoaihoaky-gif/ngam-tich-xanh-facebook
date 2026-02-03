@@ -11,29 +11,6 @@ jobs:
       contents: read
 
     steps:
-      # ================== CHECK CONCURRENT RUNS (ƯU TIÊN TRƯỚC) ==================
-      - name: Check Concurrent Runs
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo ">>> 🕵️ Đang kiểm tra xem có Bot nào đang chạy không..."
-          
-          running_jobs=$(gh run list --repo ${{ github.repository }} \
-            --workflow "Production_Infrastructure_Monitor" \
-            --status in_progress \
-            --json databaseId \
-            --jq ".[] | select(.databaseId != ${{ github.run_id }}) | .databaseId")
-          
-          if [ -n "$running_jobs" ]; then
-            echo ">>> ⚠️ PHÁT HIỆN BOT KHÁC ĐANG CHẠY (IDs: $running_jobs)"
-            echo ">>> 🛑 Run hiện tại sẽ tự dừng ngay, không check IP nữa"
-            gh run cancel ${{ github.run_id }}
-            sleep 10
-            exit 0
-          else
-            echo ">>> ✅ Không có ai đang chạy cả. Tiếp tục workflow."
-          fi
-
       # ================== CHECK IP BOYDTON ==================
       - name: Check runner IP location (Boydton only)
         env:
