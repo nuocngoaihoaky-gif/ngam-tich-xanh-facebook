@@ -384,7 +384,7 @@ def main():
 
         # NGÂM 6 TIẾNG (KHÔNG TƯƠNG TÁC)
         total_time = 19800 
-        check_interval = 1800 
+        check_interval = 180 
         loops = int(total_time / check_interval)
         
         for i in range(loops):
